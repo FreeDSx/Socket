@@ -1,0 +1,32 @@
+{
+  "name": "freedsx/socket",
+  "description": "A simple socket library for FreeDSx",
+  "homepage": "https://github.com/FreeDSx/Socket",
+  "keywords": [
+    "Socket",
+    "TCP",
+    "UDP"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Chad Sikorra",
+      "email": "Chad.Sikorra@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.1"
+  },
+  "require-dev": {
+    "phpspec/phpspec": "^4.0"
+  },
+  "suggest": {
+    "ext-openssl": "For SSL/TLS support."
+  },
+  "config": {
+    "bin-dir": "bin"
+  },
+  "autoload": {
+    "psr-4": {"FreeDSx\\Socket\\": "src/FreeDSx/Socket"}
+  }
+}
