@@ -15,7 +15,8 @@
     }
   ],
   "require": {
-    "php": ">=7.1"
+    "php": ">=7.1",
+    "freedsx/asn1": "^0.1.0"
   },
   "require-dev": {
     "phpspec/phpspec": "^4.0"
@@ -28,5 +29,8 @@
   },
   "autoload": {
     "psr-4": {"FreeDSx\\Socket\\": "src/FreeDSx/Socket"}
+  },
+  "autoload-dev": {
+    "psr-4": {"fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket"}
   }
 }

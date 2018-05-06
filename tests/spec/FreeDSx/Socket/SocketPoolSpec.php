@@ -13,6 +13,9 @@ namespace spec\FreeDSx\Ldap\Tcp;
 use FreeDSx\Socket\SocketPool;
 use PhpSpec\ObjectBehavior;
 
+/**
+ * @todo Need to find a way to spec this properly.
+ */
 class SocketPoolSpec extends ObjectBehavior
 {
     function let()
