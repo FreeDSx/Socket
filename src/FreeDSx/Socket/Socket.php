@@ -20,6 +20,14 @@ use FreeDSx\Socket\Exception\ConnectionException;
 class Socket
 {
     /**
+     * Supported transport types.
+     */
+    public const TRANSPORTS = [
+        'tcp',
+        'udp',
+    ];
+
+    /**
      * @var bool
      */
     protected $isEncrypted = false;
@@ -77,6 +85,7 @@ class Socket
      * @var array
      */
     protected $options = [
+        'transport' => 'tcp',
         'port' => 389,
         'use_ssl' => false,
         'ssl_crypto_type' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
@@ -96,6 +105,13 @@ class Socket
     {
         $this->socket = $resource;
         $this->options = array_merge($this->options, $options);
+        if (!in_array($this->options['transport'], self::TRANSPORTS)) {
+            throw new \RuntimeException(sprintf(
+                'The transport "%s" is not valid. It must be one of: %s',
+                $this->options['transport'],
+                implode(',', self::TRANSPORTS)
+            ));
+        }
         if ($this->socket) {
             $this->setStreamOpts();
         }
@@ -204,7 +220,11 @@ class Socket
      */
     public function connect(string $host)
     {
-        $uri = ($this->options['use_ssl'] ? 'ssl' : 'tcp').'://'.$host.':'.$this->options['port'];
+        $transport = $this->options['transport'];
+        if ($transport === 'tcp' && $this->options['use_ssl']) {
+            $transport = 'ssl';
+        }
+        $uri = $transport.'://'.$host.':'.$this->options['port'];
 
         $this->socket = @stream_socket_client(
             $uri,
@@ -228,6 +248,16 @@ class Socket
     }
 
     /**
+     * Get the options set for the socket.
+     *
+     * @return array
+     */
+    public function getOptions() : array
+    {
+        return $this->options;
+    }
+
+    /**
      * Create a socket by connecting to a specific host.
      *
      * @param string $host
@@ -235,9 +265,35 @@ class Socket
      * @return Socket
      * @throws ConnectionException
      */
-    public static function create(string $host, array $options = [])
+    public static function create(string $host, array $options = []) : Socket
     {
         return (new self(null, $options))->connect($host);
+    }
+
+    /**
+     * Create a TCP based socket.
+     *
+     * @param string $host
+     * @param array $options
+     * @return Socket
+     * @throws ConnectionException
+     */
+    public static function tcp(string $host, array $options = []) : Socket
+    {
+        return self::create($host, array_merge($options, ['transport' => 'tcp']));
+    }
+
+    /**
+     * Create a UDP based socket.
+     *
+     * @param string $host
+     * @param array $options
+     * @return Socket
+     * @throws ConnectionException
+     */
+    public static function udp(string $host, array $options = []) : Socket
+    {
+        return self::create($host, array_merge($options, ['transport' => 'udp']));
     }
 
     /**
