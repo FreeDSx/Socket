@@ -8,14 +8,13 @@
  * file that was distributed with this source code.
  */
 
-namespace FreeDSx\Socket;
-
-use FreeDSx\Socket\Queue\Asn1MessageQueue;
+namespace FreeDSx\Socket\Exception;
 
 /**
- * @deprecated Used for backwards-compatibility. Will be removed.
+ * Thrown in the MessageQueue if the data received is not complete.
+ *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
-class MessageQueue extends Asn1MessageQueue
+class PartialMessageException extends \Exception
 {
 }
