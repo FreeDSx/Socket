@@ -32,11 +32,6 @@ class SocketServer extends Socket
     ];
 
     /**
-     * @var resource
-     */
-    protected $context;
-
-    /**
      * @var Socket[]
      */
     protected $clients = [];
@@ -60,16 +55,21 @@ class SocketServer extends Socket
      */
     public function listen(string $ip, int $port)
     {
+        $flags = STREAM_SERVER_BIND;
+        if ($this->options['transport'] !== 'udp') {
+            $flags |= STREAM_SERVER_LISTEN;
+        }
         $this->socket = @stream_socket_server(
-            'tcp://'.$ip.':'.$port,
+            $this->options['transport'].'://'.$ip.':'.$port,
             $this->errorNumber,
             $this->errorMessage,
-            STREAM_SERVER_LISTEN | STREAM_SERVER_BIND,
+            $flags,
             $this->createSocketContext()
         );
         if (!$this->socket) {
             throw new ConnectionException(sprintf(
-                'Unable to open TCP socket (%s): %s',
+                'Unable to open %s socket (%s): %s',
+                strtoupper($this->options['transport']),
                 $this->errorNumber,
                 $this->errorMessage
             ));
@@ -96,6 +96,20 @@ class SocketServer extends Socket
     }
 
     /**
+     * Receive data from a UDP based socket. Optionally get the IP address the data was received from.
+     *
+     * @todo Buffer size should be adjustable. Max UDP packet size is 65507. Currently this avoids possible truncation.
+     * @param null $ipAddress
+     * @return null|string
+     */
+    public function receive(&$ipAddress = null)
+    {
+        $this->block(true);
+
+        return stream_socket_recvfrom($this->socket, 65507, 0, $ipAddress);
+    }
+
+    /**
      * @return Socket[]
      */
     public function getClients()
@@ -114,15 +128,44 @@ class SocketServer extends Socket
     }
 
     /**
-     * Create the socket server. Binds and listens on a specific
+     * Create the socket server. Binds and listens on a specific port
+     *
      * @param string $ip
      * @param int $port
      * @param array $options
      * @return $this
      * @throws ConnectionException
      */
-    public static function bind(string $ip, int $port, array $options = [])
+    public static function bind(string $ip, int $port, array $options = []) : SocketServer
     {
         return (new self($options))->listen($ip, $port);
+    }
+
+    /**
+     * Create a TCP based socket server.
+     *
+     * @param string $ip
+     * @param int $port
+     * @param array $options
+     * @return SocketServer
+     * @throws ConnectionException
+     */
+    public static function bindTcp(string $ip, int $port, array $options = []) : SocketServer
+    {
+        return static::bind($ip, $port, array_merge($options, ['transport' => 'tcp']));
+    }
+
+    /**
+     * Created a UDP based socket server.
+     *
+     * @param string $ip
+     * @param int $port
+     * @param array $options
+     * @return SocketServer
+     * @throws ConnectionException
+     */
+    public static function bindUdp(string $ip, int $port, array $options = []) : SocketServer
+    {
+        return static::bind($ip, $port, array_merge($options, ['transport' => 'udp']));
     }
 }

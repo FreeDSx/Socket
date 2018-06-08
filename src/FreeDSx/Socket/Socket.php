@@ -13,7 +13,7 @@ namespace FreeDSx\Socket;
 use FreeDSx\Socket\Exception\ConnectionException;
 
 /**
- * Represents a TCP socket.
+ * Represents a generic socket.
  *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */

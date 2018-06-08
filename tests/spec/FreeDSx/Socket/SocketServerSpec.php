@@ -11,6 +11,7 @@
 namespace spec\FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketServer;
 use PhpSpec\ObjectBehavior;
 
@@ -41,5 +42,30 @@ class SocketServerSpec extends ObjectBehavior
     function it_should_return_null_if_there_is_no_client_on_accept()
     {
         $this->accept(0)->shouldBeNull();
+    }
+
+    function it_should_construct_a_tcp_based_socket_server()
+    {
+        $this->beConstructedThrough('bindTcp', ['0.0.0.0', 33389]);
+
+        $this->getOptions()->shouldHaveKeyWithValue('transport', 'tcp');
+    }
+
+    function it_should_construct_a_udp_based_socket_server()
+    {
+        $this->beConstructedThrough('bindUdp', ['0.0.0.0', 33389]);
+
+        $this->getOptions()->shouldHaveKeyWithValue('transport', 'udp');
+    }
+
+    function it_should_receive_data()
+    {
+        $this->beConstructedThrough('bindUdp', ['0.0.0.0', 33389]);
+        $this->getOptions();
+
+        $socket = Socket::udp('127.0.0.1', ['port' => 33389]);
+        $socket->write('foo');
+
+        $this->receive()->shouldBeEqualTo('foo');
     }
 }
