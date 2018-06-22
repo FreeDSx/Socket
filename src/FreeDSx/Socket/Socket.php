@@ -43,11 +43,6 @@ class Socket
     protected $context;
 
     /**
-     * @var int
-     */
-    protected $bufferSize = 8192;
-
-    /**
      * @var string
      */
     protected $errorMessage;
@@ -95,6 +90,7 @@ class Socket
         'ssl_peer_name' => null,
         'timeout_connect' => 3,
         'timeout_read' => 15,
+        'buffer_size' => 8192,
     ];
 
     /**
@@ -126,7 +122,7 @@ class Socket
         $data = false;
 
         stream_set_blocking($this->socket, $block);
-        while (strlen($buffer = fread($this->socket, $this->bufferSize)) > 0) {
+        while (strlen($buffer = fread($this->socket, $this->options['buffer_size'])) > 0) {
             $data .= $buffer;
             if ($block) {
                 $block = false;
@@ -293,7 +289,10 @@ class Socket
      */
     public static function udp(string $host, array $options = []) : Socket
     {
-        return self::create($host, array_merge($options, ['transport' => 'udp']));
+        return self::create($host, array_merge($options, [
+            'transport' => 'udp',
+            'buffer_size' => 65507,
+        ]));
     }
 
     /**

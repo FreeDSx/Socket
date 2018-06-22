@@ -33,6 +33,7 @@ class SocketSpec extends ObjectBehavior
             'ssl_peer_name' => null,
             'timeout_connect' => 3,
             'timeout_read' => 15,
+            'buffer_size' => 8192,
         ]);
     }
 
@@ -48,6 +49,11 @@ class SocketSpec extends ObjectBehavior
 
     function it_should_create_a_udp_based_socket()
     {
-        $this::udp('8.8.8.8', ['port' => 53])->getOptions()->shouldHaveKeyWithValue('transport', 'udp');;
+        $this::udp('8.8.8.8', ['port' => 53])->getOptions()->shouldHaveKeyWithValue('transport', 'udp');
+    }
+
+    function it_should_have_a_default_buffer_size_of_65507_for_UDP()
+    {
+        $this::udp('8.8.8.8', ['port' => 53])->getOptions()->shouldHaveKeyWithValue('buffer_size', 65507);
     }
 }
