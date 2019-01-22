@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.2.1 (2019-01-21)
+------------------
+* Minor performance adjustments.
+
 0.2.0 (2018-07-29)
 ------------------
 * Add UDP client / server functionality.
