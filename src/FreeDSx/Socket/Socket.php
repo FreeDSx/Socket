@@ -100,8 +100,8 @@ class Socket
     public function __construct($resource = null, array $options = [])
     {
         $this->socket = $resource;
-        $this->options = array_merge($this->options, $options);
-        if (!in_array($this->options['transport'], self::TRANSPORTS)) {
+        $this->options = \array_merge($this->options, $options);
+        if (!\in_array($this->options['transport'], self::TRANSPORTS)) {
             throw new \RuntimeException(sprintf(
                 'The transport "%s" is not valid. It must be one of: %s',
                 $this->options['transport'],
@@ -121,15 +121,15 @@ class Socket
     {
         $data = false;
 
-        stream_set_blocking($this->socket, $block);
-        while (strlen($buffer = fread($this->socket, $this->options['buffer_size'])) > 0) {
+        \stream_set_blocking($this->socket, $block);
+        while (\strlen($buffer = \fread($this->socket, $this->options['buffer_size'])) > 0) {
             $data .= $buffer;
             if ($block) {
                 $block = false;
-                stream_set_blocking($this->socket, false);
+                \stream_set_blocking($this->socket, false);
             }
         }
-        stream_set_blocking($this->socket, true);
+        \stream_set_blocking($this->socket, true);
 
         return $data;
     }
@@ -140,7 +140,7 @@ class Socket
      */
     public function write(string $data)
     {
-        @fwrite($this->socket, $data);
+        @\fwrite($this->socket, $data);
 
         return $this;
     }
@@ -151,7 +151,7 @@ class Socket
      */
     public function block(bool $block)
     {
-        stream_set_blocking($this->socket, $block);
+        \stream_set_blocking($this->socket, $block);
 
         return $this;
     }
@@ -161,7 +161,7 @@ class Socket
      */
     public function isConnected() : bool
     {
-        return is_resource($this->socket);
+        return \is_resource($this->socket);
     }
 
     /**
@@ -177,7 +177,7 @@ class Socket
      */
     public function close()
     {
-        stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+        \stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
         $this->isEncrypted = false;
         $this->context = null;
 
@@ -193,9 +193,9 @@ class Socket
      */
     public function encrypt(bool $encrypt)
     {
-        stream_set_blocking($this->socket, true);
-        $result = stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_type']);
-        stream_set_blocking($this->socket, false);
+        \stream_set_blocking($this->socket, true);
+        $result = \stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_type']);
+        \stream_set_blocking($this->socket, false);
 
         if ($result === false) {
             throw new ConnectionException(sprintf(
@@ -222,7 +222,7 @@ class Socket
         }
         $uri = $transport.'://'.$host.':'.$this->options['port'];
 
-        $this->socket = @stream_socket_client(
+        $this->socket = @\stream_socket_client(
             $uri,
             $this->errorNumber,
             $this->errorMessage,
@@ -276,7 +276,7 @@ class Socket
      */
     public static function tcp(string $host, array $options = []) : Socket
     {
-        return self::create($host, array_merge($options, ['transport' => 'tcp']));
+        return self::create($host, \array_merge($options, ['transport' => 'tcp']));
     }
 
     /**
@@ -289,7 +289,7 @@ class Socket
      */
     public static function udp(string $host, array $options = []) : Socket
     {
-        return self::create($host, array_merge($options, [
+        return self::create($host, \array_merge($options, [
             'transport' => 'udp',
             'buffer_size' => 65507,
         ]));
@@ -307,13 +307,13 @@ class Socket
             }
         }
         if ($this->options['ssl_validate_cert'] === false) {
-            $sslOpts = array_merge($sslOpts, [
+            $sslOpts = \array_merge($sslOpts, [
                 'allow_self_signed' => true,
                 'verify_peer' => false,
                 'verify_peer_name' => false,
             ]);
         }
-        $this->context = stream_context_create([
+        $this->context = \stream_context_create([
             'ssl' => $sslOpts,
         ]);
 
@@ -325,6 +325,6 @@ class Socket
      */
     protected function setStreamOpts() : void
     {
-        stream_set_timeout($this->socket, $this->options['timeout_read']);
+        \stream_set_timeout($this->socket, $this->options['timeout_read']);
     }
 }

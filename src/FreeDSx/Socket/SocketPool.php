@@ -48,7 +48,7 @@ class SocketPool
      */
     public function __construct(array $options)
     {
-        $this->options = array_merge($this->options, $options);
+        $this->options = \array_merge($this->options, $options);
     }
 
     /**
@@ -61,7 +61,7 @@ class SocketPool
         if ($server) {
             $servers = [$server];
         } else {
-            $servers = is_array($this->options['servers']) ? $this->options['servers'] : [$this->options['servers']];
+            $servers = \is_array($this->options['servers']) ? $this->options['servers'] : [$this->options['servers']];
         }
 
         $lastEx = null;

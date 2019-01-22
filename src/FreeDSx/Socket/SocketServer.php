@@ -41,7 +41,7 @@ class SocketServer extends Socket
      */
     public function __construct(array $options = [])
     {
-        parent::__construct(null, array_merge($this->serverOpts, $options));
+        parent::__construct(null, \array_merge($this->serverOpts, $options));
     }
 
     /**
@@ -59,7 +59,7 @@ class SocketServer extends Socket
         if ($this->options['transport'] !== 'udp') {
             $flags |= STREAM_SERVER_LISTEN;
         }
-        $this->socket = @stream_socket_server(
+        $this->socket = @\stream_socket_server(
             $this->options['transport'].'://'.$ip.':'.$port,
             $this->errorNumber,
             $this->errorMessage,
@@ -69,7 +69,7 @@ class SocketServer extends Socket
         if (!$this->socket) {
             throw new ConnectionException(sprintf(
                 'Unable to open %s socket (%s): %s',
-                strtoupper($this->options['transport']),
+                \strtoupper($this->options['transport']),
                 $this->errorNumber,
                 $this->errorMessage
             ));
@@ -84,9 +84,9 @@ class SocketServer extends Socket
      */
     public function accept($timeout = -1) : ?Socket
     {
-        $socket = @stream_socket_accept($this->socket, $timeout);
+        $socket = @\stream_socket_accept($this->socket, $timeout);
         if ($socket) {
-            $socket = new Socket($socket, array_merge($this->options, [
+            $socket = new Socket($socket, \array_merge($this->options, [
                 'timeout_read' => $this->options['idle_timeout']
             ]));
             $this->clients[] = $socket;
@@ -106,7 +106,7 @@ class SocketServer extends Socket
     {
         $this->block(true);
 
-        return stream_socket_recvfrom($this->socket, 65507, 0, $ipAddress);
+        return \stream_socket_recvfrom($this->socket, 65507, 0, $ipAddress);
     }
 
     /**
@@ -122,7 +122,7 @@ class SocketServer extends Socket
      */
     public function removeClient(Socket $socket)
     {
-        if (($index = array_search($socket, $this->clients, true)) !== false) {
+        if (($index = \array_search($socket, $this->clients, true)) !== false) {
             unset($this->clients[$index]);
         }
     }
@@ -152,7 +152,7 @@ class SocketServer extends Socket
      */
     public static function bindTcp(string $ip, int $port, array $options = []) : SocketServer
     {
-        return static::bind($ip, $port, array_merge($options, ['transport' => 'tcp']));
+        return static::bind($ip, $port, \array_merge($options, ['transport' => 'tcp']));
     }
 
     /**
@@ -166,6 +166,6 @@ class SocketServer extends Socket
      */
     public static function bindUdp(string $ip, int $port, array $options = []) : SocketServer
     {
-        return static::bind($ip, $port, array_merge($options, ['transport' => 'udp']));
+        return static::bind($ip, $port, \array_merge($options, ['transport' => 'udp']));
     }
 }
