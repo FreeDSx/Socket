@@ -57,7 +57,7 @@ class Socket
      */
     protected $sslOptsMap = [
         'ssl_allow_self_signed' => 'allow_self_signed',
-        'ssl_ca_cert' => 'ca_file',
+        'ssl_ca_cert' => 'cafile',
         'ssl_crypto_type' => 'crypto_type',
         'ssl_peer_name' => 'peer_name',
         'ssl_cert' => 'local_cert',
