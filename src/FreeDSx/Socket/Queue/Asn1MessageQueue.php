@@ -59,7 +59,7 @@ class Asn1MessageQueue extends MessageQueue
     {
         try {
             $asn1 = $this->encoder->decode($bytes);
-            $message = new Message($asn1, $asn1->getTrailingData());
+            $message = new Message($asn1, $this->encoder->getLastPosition());
         } catch (PartialPduException $exception) {
             throw new PartialMessageException($exception->getMessage(), $exception->getCode(), $exception);
         }

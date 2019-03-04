@@ -36,6 +36,7 @@ class MessageQueueSpec extends ObjectBehavior
         $socket->read()->willReturn('foo');
         $socket->read(false)->shouldBeCalled()->willReturn(false);
         $encoder->decode('foo')->shouldBeCalled()->willReturn(new IntegerType(100));
+        $encoder->getLastPosition()->willReturn(2);
 
         $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(100)));
     }
@@ -43,10 +44,10 @@ class MessageQueueSpec extends ObjectBehavior
     function it_should_continue_on_during_partial_PDUs($socket, $encoder)
     {
         $socket->read()->willReturn('foo', 'bar');
-        $socket->read(false)->shouldBeCalled()->willReturn(false);
 
         $encoder->decode('foo')->shouldBeCalled()->willThrow(PartialPduException::class);
         $encoder->decode('foobar')->shouldBeCalled()->willReturn(new IntegerType(100));
+        $encoder->getLastPosition()->willReturn(2);
 
         $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(100)));
     }

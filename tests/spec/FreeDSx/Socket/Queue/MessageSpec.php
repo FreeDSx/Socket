@@ -32,15 +32,15 @@ class MessageSpec extends ObjectBehavior
         $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(1)));
     }
 
-    function it_should_have_no_trailing_data_by_default()
+    function it_should_have_no_last_position_data_by_default()
     {
-        $this->getTrailingData()->shouldBeNull();
+        $this->getLastPosition()->shouldBeNull();
     }
 
-    function it_should_get_trailing_data_if_it_exists()
+    function it_should_get_the_last_position()
     {
-        $this->beConstructedWith(new Pdu(new IntegerType(1)), 'foo');
+        $this->beConstructedWith(new Pdu(new IntegerType(1)), 2);
 
-        $this->getTrailingData()->shouldBeEqualTo('foo');
+        $this->getLastPosition()->shouldBeEqualTo(2);
     }
 }

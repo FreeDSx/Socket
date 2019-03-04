@@ -46,7 +46,7 @@ abstract class MessageQueue
      */
     public function getMessages(?int $id = null)
     {
-        $this->buffer = ($this->buffer !== false) ? $this->buffer : $this->socket->read();
+        $this->buffer = \strlen($this->buffer) ? $this->buffer : $this->socket->read();
 
         # Likely an unsolicited notification for a remote disconnect. For some reason, this forces it to be caught in
         # that case (but down below). This exception directly below is never thrown in that case. But the remote
@@ -57,15 +57,12 @@ abstract class MessageQueue
             throw new ConnectionException('The connection to the server has been lost.');
         }
 
-        while ($this->buffer !== false) {
+        while (\strlen($this->buffer)) {
             $message = null;
             try {
                 $message = $this->decode($this->buffer);
-                $this->buffer = false;
-
-                if ($message->getTrailingData() != '') {
-                    $this->buffer = $message->getTrailingData();
-                } elseif (($peek = $this->socket->read(false)) !== false) {
+                $this->buffer = (($message->getLastPosition() + 1) < \strlen($this->buffer)) ? \substr($this->buffer, $message->getLastPosition()) : null;
+                if ($this->buffer == null && ($peek = $this->socket->read(false)) !== false) {
                     $this->buffer .= $peek;
                 }
             } catch (PartialMessageException $e) {

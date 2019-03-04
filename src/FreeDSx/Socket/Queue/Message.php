@@ -25,16 +25,16 @@ class Message
     /**
      * @var null|string
      */
-    protected $trailingData;
+    protected $lastPosition;
 
     /**
      * @param mixed $message The message object as the result of the socket data.
-     * @param null|string $trailingData Any trailing data after this message object.
+     * @param null|int $lastPosition the last position of the byte stream after this message.
      */
-    public function __construct($message, $trailingData = null)
+    public function __construct($message, $lastPosition = null)
     {
         $this->message = $message;
-        $this->trailingData = $trailingData;
+        $this->lastPosition = $lastPosition;
     }
 
     /**
@@ -48,12 +48,12 @@ class Message
     }
 
     /**
-     * Get any trailing data after this message object.
+     * Get the last position of the byte stream after this message.
      *
-     * @return null|string
+     * @return null|int
      */
-    public function getTrailingData()
+    public function getLastPosition()
     {
-        return $this->trailingData;
+        return $this->lastPosition;
     }
 }
