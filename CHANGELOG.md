@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+0.3.0 (2019-03-03)
+------------------
+* Update the ASN.1 Message Queue to use the last position of the encoder.
+* Change 'trailing data' to 'last position' for the messages.
+
 0.2.2 (2019-02-25)
 ------------------
 * Fix an incorrect SSL context option name (cafile).
