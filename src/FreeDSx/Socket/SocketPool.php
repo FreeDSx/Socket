@@ -52,23 +52,17 @@ class SocketPool
     }
 
     /**
-     * @param null|string $server
-     * @return Socket
      * @throws ConnectionException
      */
-    public function connect(?string $server = null) : Socket
+    public function connect(string $hostname = '') : Socket
     {
-        if ($server) {
-            $servers = [$server];
-        } else {
-            $servers = \is_array($this->options['servers']) ? $this->options['servers'] : [$this->options['servers']];
-        }
+        $hosts = ($hostname !== '') ? [$hostname] : (array) $this->options['servers'];
 
         $lastEx = null;
         $tcp = null;
-        foreach ($servers as $server) {
+        foreach ($hosts as $host) {
             try {
-                $tcp = Socket::create($server, $this->getTcpOptions());
+                $tcp = Socket::create($host, $this->getTcpOptions());
                 break;
             } catch (\Exception $e) {
                 $lastEx = $e;
@@ -78,7 +72,7 @@ class SocketPool
         if ($tcp === null) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to server(s): %s',
-                implode(',', $servers)
+                implode(',', $hosts)
             ), 0, $lastEx);
         }
 

@@ -75,7 +75,11 @@ class Asn1MessageQueue extends MessageQueue
         if ($this->pduClass === null) {
             throw new \RuntimeException('You must either define a PDU class or override getPdu().');
         }
+        $callable = [$this->pduClass, 'fromAsn1'];
+        if (!\is_callable($callable)) {
+            throw new \RuntimeException(sprintf('The class %s is not callable.', $this->pduClass));
+        }
 
-        return \call_user_func($this->pduClass.'::'.'fromAsn1', $message->getMessage());
+        return \call_user_func($callable, $message->getMessage());
     }
 }

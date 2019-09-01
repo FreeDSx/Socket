@@ -23,7 +23,7 @@ class Message
     protected $message;
 
     /**
-     * @var null|string
+     * @var null|int
      */
     protected $lastPosition;
 
@@ -31,7 +31,7 @@ class Message
      * @param mixed $message The message object as the result of the socket data.
      * @param null|int $lastPosition the last position of the byte stream after this message.
      */
-    public function __construct($message, $lastPosition = null)
+    public function __construct($message, ?int $lastPosition = null)
     {
         $this->message = $message;
         $this->lastPosition = $lastPosition;
@@ -52,7 +52,7 @@ class Message
      *
      * @return null|int
      */
-    public function getLastPosition()
+    public function getLastPosition(): ?int
     {
         return $this->lastPosition;
     }

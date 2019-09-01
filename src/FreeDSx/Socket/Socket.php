@@ -94,21 +94,21 @@ class Socket
     ];
 
     /**
-     * @param null $resource
+     * @param resource|null $resource
      * @param array $options
      */
     public function __construct($resource = null, array $options = [])
     {
         $this->socket = $resource;
         $this->options = \array_merge($this->options, $options);
-        if (!\in_array($this->options['transport'], self::TRANSPORTS)) {
+        if (!\in_array($this->options['transport'], self::TRANSPORTS, true)) {
             throw new \RuntimeException(sprintf(
                 'The transport "%s" is not valid. It must be one of: %s',
                 $this->options['transport'],
                 implode(',', self::TRANSPORTS)
             ));
         }
-        if ($this->socket) {
+        if ($this->socket !== null) {
             $this->setStreamOpts();
         }
     }
@@ -122,7 +122,7 @@ class Socket
         $data = false;
 
         \stream_set_blocking($this->socket, $block);
-        while (\strlen($buffer = \fread($this->socket, $this->options['buffer_size'])) > 0) {
+        while (\strlen((string) ($buffer = \fread($this->socket, $this->options['buffer_size']))) > 0) {
             $data .= $buffer;
             if ($block) {
                 $block = false;
@@ -177,7 +177,9 @@ class Socket
      */
     public function close()
     {
-        \stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+        if ($this->socket !== null) {
+            \stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+        }
         $this->isEncrypted = false;
         $this->context = null;
 
@@ -197,7 +199,7 @@ class Socket
         $result = \stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_type']);
         \stream_set_blocking($this->socket, false);
 
-        if ($result === false) {
+        if ((bool) $result == false) {
             throw new ConnectionException(sprintf(
                 'Unable to %s encryption on TCP connection. %s',
                 $encrypt ? 'enable' : 'disable',
@@ -217,12 +219,12 @@ class Socket
     public function connect(string $host)
     {
         $transport = $this->options['transport'];
-        if ($transport === 'tcp' && $this->options['use_ssl']) {
+        if ($transport === 'tcp' && (bool) $this->options['use_ssl'] === true) {
             $transport = 'ssl';
         }
         $uri = $transport.'://'.$host.':'.$this->options['port'];
 
-        $this->socket = @\stream_socket_client(
+        $socket = @\stream_socket_client(
             $uri,
             $this->errorNumber,
             $this->errorMessage,
@@ -230,13 +232,14 @@ class Socket
             STREAM_CLIENT_CONNECT,
             $this->createSocketContext()
         );
-        if ($this->socket === false) {
+        if ($socket === false) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to %s: %s',
                 $host,
                 $this->errorMessage
             ));
         }
+        $this->socket = $socket;
         $this->setStreamOpts();
         $this->isEncrypted = $this->options['use_ssl'];
 

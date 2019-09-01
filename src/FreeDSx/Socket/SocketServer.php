@@ -59,14 +59,14 @@ class SocketServer extends Socket
         if ($this->options['transport'] !== 'udp') {
             $flags |= STREAM_SERVER_LISTEN;
         }
-        $this->socket = @\stream_socket_server(
+        $socket = @\stream_socket_server(
             $this->options['transport'].'://'.$ip.':'.$port,
             $this->errorNumber,
             $this->errorMessage,
             $flags,
             $this->createSocketContext()
         );
-        if (!$this->socket) {
+        if ($socket === false) {
             throw new ConnectionException(sprintf(
                 'Unable to open %s socket (%s): %s',
                 \strtoupper($this->options['transport']),
@@ -74,6 +74,7 @@ class SocketServer extends Socket
                 $this->errorMessage
             ));
         }
+        $this->socket = $socket;
 
         return $this;
     }
@@ -85,7 +86,7 @@ class SocketServer extends Socket
     public function accept($timeout = -1) : ?Socket
     {
         $socket = @\stream_socket_accept($this->socket, $timeout);
-        if ($socket) {
+        if (\is_resource($socket)) {
             $socket = new Socket($socket, \array_merge($this->options, [
                 'timeout_read' => $this->options['idle_timeout']
             ]));
@@ -120,7 +121,7 @@ class SocketServer extends Socket
     /**
      * @param Socket $socket
      */
-    public function removeClient(Socket $socket)
+    public function removeClient(Socket $socket) : void
     {
         if (($index = \array_search($socket, $this->clients, true)) !== false) {
             unset($this->clients[$index]);
@@ -133,7 +134,7 @@ class SocketServer extends Socket
      * @param string $ip
      * @param int $port
      * @param array $options
-     * @return $this
+     * @return SocketServer
      * @throws ConnectionException
      */
     public static function bind(string $ip, int $port, array $options = []) : SocketServer

@@ -46,27 +46,27 @@ abstract class MessageQueue
      */
     public function getMessages(?int $id = null)
     {
-        $this->buffer = \strlen($this->buffer) ? $this->buffer : $this->socket->read();
+        $this->buffer = (\strlen((string) $this->buffer) !== 0) ? $this->buffer : $this->socket->read();
 
-        # Likely an unsolicited notification for a remote disconnect. For some reason, this forces it to be caught in
-        # that case (but down below). This exception directly below is never thrown in that case. But the remote
-        # disconnect message is never caught if this block is not here. Why???
-        #
-        # @todo PHP bug? Or logic issue with my generator use?
         if ($this->buffer === false) {
             throw new ConnectionException('The connection to the server has been lost.');
         }
 
-        while (\strlen($this->buffer)) {
+        while (\strlen($this->buffer) !== 0) {
             $message = null;
             try {
                 $message = $this->decode($this->buffer);
-                $this->buffer = (($message->getLastPosition() + 1) < \strlen($this->buffer)) ? \substr($this->buffer, $message->getLastPosition()) : null;
-                if ($this->buffer == null && ($peek = $this->socket->read(false)) !== false) {
+                $lastPos = (int) $message->getLastPosition();
+                if (($lastPos + 1) < \strlen($this->buffer)) {
+                    $this->buffer = \substr($this->buffer, $lastPos);
+                } else {
+                    $this->buffer = '';
+                }
+                if ($this->buffer === '' && ($peek = $this->socket->read(false)) !== false) {
                     $this->buffer .= $peek;
                 }
             } catch (PartialMessageException $e) {
-                $this->buffer .= $this->socket->read();
+                $this->buffer .= (string) $this->socket->read();
             }
 
             if ($message !== null) {
@@ -79,8 +79,7 @@ abstract class MessageQueue
      * Decode the bytes to an object. If you have a partial object, throw the PartialMessageException and the queue
      * will attempt to append more data to the buffer.
      *
-     * @param $bytes
-     * @return mixed
+     * @param string $bytes
      * @throws PartialMessageException
      */
     protected abstract function decode($bytes) : Message;
