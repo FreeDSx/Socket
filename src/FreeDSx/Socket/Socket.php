@@ -161,7 +161,7 @@ class Socket
      */
     public function isConnected() : bool
     {
-        return \is_resource($this->socket);
+        return $this->socket !== null && !@\feof($this->socket);
     }
 
     /**
