@@ -57,9 +57,18 @@ class SocketSpec extends ObjectBehavior
         $this::udp('8.8.8.8', ['port' => 53])->getOptions()->shouldHaveKeyWithValue('buffer_size', 65507);
     }
 
-    function it_should_tell_whether_or_not_it_is_connected()
+    function it_should_tell_whether_or_not_it_is_connected_for_tcp()
     {
         $this->beConstructedThrough('tcp', ['www.google.com', ['port' => 80]]);
+
+        $this->isConnected()->shouldBeEqualTo(true);
+        $this->close();
+        $this->isConnected()->shouldBeEqualTo(false);
+    }
+
+    function it_should_tell_whether_or_not_it_is_connected_for_udp()
+    {
+        $this->beConstructedThrough('udp', ['www.google.com', ['port' => 53]]);
 
         $this->isConnected()->shouldBeEqualTo(true);
         $this->close();
