@@ -19,14 +19,13 @@
   },
   "require-dev": {
     "phpspec/phpspec": "^5.0",
-    "freedsx/asn1": "^0.4.0"
+    "freedsx/asn1": "^0.4.0",
+    "phpstan/phpstan": "^0.11.15",
+    "phpstan/phpstan-strict-rules": "^0.11.1"
   },
   "suggest": {
     "ext-openssl": "For SSL/TLS support.",
     "freedsx/asn1": "For ASN.1 based message queues."
-  },
-  "config": {
-    "bin-dir": "bin"
   },
   "autoload": {
     "psr-4": {"FreeDSx\\Socket\\": "src/FreeDSx/Socket"}
