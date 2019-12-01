@@ -18,7 +18,7 @@
     "php": ">=7.1"
   },
   "require-dev": {
-    "phpspec/phpspec": "^5.0",
+    "phpspec/phpspec": "^5.1|^6.1",
     "freedsx/asn1": "^0.4.0",
     "friends-of-phpspec/phpspec-code-coverage": "^4.3",
     "phpstan/phpstan": "^0.11.15",
