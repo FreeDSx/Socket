@@ -18,8 +18,9 @@
     "php": ">=7.1"
   },
   "require-dev": {
-    "phpspec/phpspec": "^5.0",
+    "phpspec/phpspec": "^5.1|^6.1",
     "freedsx/asn1": "^0.4.0",
+    "friends-of-phpspec/phpspec-code-coverage": "^4.3",
     "phpstan/phpstan": "^0.11.15",
     "phpstan/phpstan-strict-rules": "^0.11.1"
   },
@@ -32,5 +33,16 @@
   },
   "autoload-dev": {
     "psr-4": {"fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket"}
+  },
+  "scripts": {
+    "test-coverage": [
+      "phpspec run --no-interaction -c phpspec.cov.yml"
+    ],
+    "test": [
+      "phpspec run --no-interaction"
+    ],
+    "analyse": [
+      "phpstan analyse"
+    ]
   }
 }

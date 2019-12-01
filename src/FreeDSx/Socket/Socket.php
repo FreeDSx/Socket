@@ -180,6 +180,7 @@ class Socket
         if ($this->socket !== null) {
             \stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
         }
+        $this->socket = null;
         $this->isEncrypted = false;
         $this->context = null;
 
