@@ -34,7 +34,7 @@ class Asn1MessageQueueSpec extends ObjectBehavior
     function it_should_return_a_single_message_on_tcp_read($socket, $encoder)
     {
         $socket->read()->willReturn('foo');
-        $socket->read(false)->shouldBeCalled()->willReturn(false);
+        $socket->read(false)->willReturn(false);
         $encoder->decode('foo')->shouldBeCalled()->willReturn(new IntegerType(100));
         $encoder->getLastPosition()->willReturn(3);
 
