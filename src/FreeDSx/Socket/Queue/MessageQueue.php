@@ -95,8 +95,8 @@ abstract class MessageQueue
     protected function addToConsumableBuffer(): void
     {
         if ($this->hasAvailableBuffer()) {
-            $buffer = $this->unwrap($this->buffer);
-            $this->buffer = \substr($this->buffer, $buffer->endsAt());
+            $buffer = $this->unwrap((string)$this->buffer);
+            $this->buffer = \substr((string)$this->buffer, $buffer->endsAt());
             $this->toConsume .= $buffer->bytes();
         }
     }
@@ -108,7 +108,7 @@ abstract class MessageQueue
 
     protected function hasAvailableBuffer(): bool
     {
-        return \strlen($this->buffer) !== 0;
+        return \strlen((string)$this->buffer) !== 0;
     }
 
     protected function hasConsumableBuffer(): bool
