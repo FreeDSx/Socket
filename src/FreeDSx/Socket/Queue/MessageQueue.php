@@ -32,6 +32,11 @@ abstract class MessageQueue
     protected $buffer = false;
 
     /**
+     * @var string|null
+     */
+    protected $toConsume = null;
+
+    /**
      * @param Socket $socket
      */
     public function __construct(Socket $socket)
@@ -46,33 +51,111 @@ abstract class MessageQueue
      */
     public function getMessages(?int $id = null)
     {
-        $this->buffer = (\strlen((string) $this->buffer) !== 0) ? $this->buffer : $this->socket->read();
+        if (!$this->hasBuffer()) {
+            $this->addToAvailableBufferOrFail();
+        }
 
-        if ($this->buffer === false) {
+        while ($this->hasBuffer()) {
+            try {
+                if (!$this->hasConsumableBuffer()) {
+                    $this->addToConsumableBuffer();
+                }
+            } catch (PartialMessageException $exception) {
+                $this->addToAvailableBufferOrFail();
+            }
+
+            try {
+                while ($this->hasConsumableBuffer()) {
+                    $message = $this->consume();
+                    if ($message !== null) {
+                        yield $this->constructMessage($message, $id);
+                    }
+                }
+            } catch (PartialMessageException $e) {
+                try {
+                    $this->addToConsumableBuffer();
+                } catch (PartialMessageException $e) {
+                    $this->addToAvailableBufferOrFail();
+                }
+            }
+        }
+    }
+
+    protected function addToAvailableBufferOrFail(): void
+    {
+        $bytes = $this->socket->read();
+
+        if ($bytes === false) {
             throw new ConnectionException('The connection to the server has been lost.');
         }
 
-        while (\strlen($this->buffer) !== 0) {
-            $message = null;
-            try {
-                $message = $this->decode($this->buffer);
-                $lastPos = (int) $message->getLastPosition();
-                if (($lastPos + 1) < \strlen($this->buffer)) {
-                    $this->buffer = \substr($this->buffer, $lastPos);
-                } else {
-                    $this->buffer = '';
-                }
-                if ($this->buffer === '' && ($peek = $this->socket->read(false)) !== false) {
-                    $this->buffer .= $peek;
-                }
-            } catch (PartialMessageException $e) {
-                $this->buffer .= (string) $this->socket->read();
-            }
+        $this->buffer .= $bytes;
+    }
 
-            if ($message !== null) {
-                yield $this->constructMessage($message, $id);
+    protected function addToConsumableBuffer(): void
+    {
+        if ($this->hasAvailableBuffer()) {
+            $buffer = $this->unwrap($this->buffer);
+            $this->buffer = \substr($this->buffer, $buffer->endsAt());
+            $this->toConsume .= $buffer->bytes();
+        }
+    }
+
+    protected function hasBuffer(): bool
+    {
+        return $this->hasConsumableBuffer() || $this->hasAvailableBuffer();
+    }
+
+    protected function hasAvailableBuffer(): bool
+    {
+        return \strlen($this->buffer) !== 0;
+    }
+
+    protected function hasConsumableBuffer(): bool
+    {
+        return \strlen($this->toConsume) !== 0;
+    }
+
+    /**
+     * @return Message|null
+     * @throws PartialMessageException
+     */
+    protected function consume(): ?Message
+    {
+        $message = null;
+
+        try {
+            $message = $this->decode($this->toConsume);
+            $lastPos = (int)$message->getLastPosition();
+            $this->toConsume = \substr($this->toConsume, $lastPos);
+
+            if ($this->toConsume === '' && ($peek = $this->socket->read(false)) !== false) {
+                $this->buffer .= $peek;
+            }
+        } catch (PartialMessageException $exception) {
+            # If we have available buffer, it might have what we need. Attempt to add it. Otherwise let it bubble...
+            if ($this->hasAvailableBuffer()) {
+                $this->addToConsumableBuffer();
+            } else {
+                throw $exception;
             }
         }
+
+        # Adding to the consumed before could cause this to succeed, so retry.
+        if ($message === null) {
+            return $this->consume();
+        }
+
+        return $message;
+    }
+
+    /**
+     * @param string $bytes
+     * @return Buffer
+     */
+    protected function unwrap($bytes) : Buffer
+    {
+        return new Buffer($bytes, \strlen($bytes));
     }
 
     /**
@@ -80,6 +163,7 @@ abstract class MessageQueue
      * will attempt to append more data to the buffer.
      *
      * @param string $bytes
+     * @return Message
      * @throws PartialMessageException
      */
     protected abstract function decode($bytes) : Message;
