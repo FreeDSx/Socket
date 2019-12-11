@@ -31,28 +31,29 @@ class MessageQueueSpec extends ObjectBehavior
         $this->shouldHaveType(MessageQueue::class);
     }
 
-    function it_should_return_a_single_message_on_tcp_read($socket, $encoder)
+    function it_should_return_a_single_message_on_tcp_read(Socket $socket, EncoderInterface $encoder)
     {
         $socket->read()->willReturn('foo');
-        $socket->read(false)->shouldBeCalled()->willReturn(false);
+        $socket->read(false)->willReturn(false);
         $encoder->decode('foo')->shouldBeCalled()->willReturn(new IntegerType(100));
         $encoder->getLastPosition()->willReturn(2);
 
         $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(100)));
     }
 
-    function it_should_continue_on_during_partial_PDUs($socket, $encoder)
+    function it_should_continue_on_during_partial_PDUs(Socket $socket, EncoderInterface $encoder)
     {
         $socket->read()->willReturn('foo', 'bar');
+        $socket->read(false)->willReturn(false);
 
         $encoder->decode('foo')->shouldBeCalled()->willThrow(PartialPduException::class);
         $encoder->decode('foobar')->shouldBeCalled()->willReturn(new IntegerType(100));
-        $encoder->getLastPosition()->willReturn(2);
+        $encoder->getLastPosition()->willReturn(6);
 
         $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(100)));
     }
 
-    function it_should_throw_an_exception_on_get_message_when_there_is_none($socket)
+    function it_should_throw_an_exception_on_get_message_when_there_is_none(Socket $socket)
     {
         $socket->read()->willReturn(false);
 

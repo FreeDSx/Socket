@@ -72,9 +72,9 @@ abstract class MessageQueue
                     }
                 }
             } catch (PartialMessageException $e) {
-                try {
+                if ($this->hasAvailableBuffer()) {
                     $this->addToConsumableBuffer();
-                } catch (PartialMessageException $e) {
+                } else {
                     $this->addToAvailableBufferOrFail();
                 }
             }
