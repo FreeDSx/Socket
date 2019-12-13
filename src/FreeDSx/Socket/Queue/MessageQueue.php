@@ -57,8 +57,10 @@ abstract class MessageQueue
 
         while ($this->hasBuffer()) {
             try {
-                if (!$this->hasConsumableBuffer()) {
+                if ($this->hasAvailableBuffer()) {
                     $this->addToConsumableBuffer();
+                } elseif (!$this->hasConsumableBuffer()) {
+                    $this->addToAvailableBufferOrFail();
                 }
             } catch (PartialMessageException $exception) {
                 $this->addToAvailableBufferOrFail();
