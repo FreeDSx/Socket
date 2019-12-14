@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.4.0 (2019-12-14)
+------------------
+* Change how the MessageQueue handles buffered data. It now supports an optional MessageWrapper.
+
 0.3.1 (2019-09-01)
 ------------------
 * Fix the isConnected method to determine whether or not the stream is open.
