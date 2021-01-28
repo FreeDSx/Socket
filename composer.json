@@ -21,8 +21,7 @@
     "phpspec/phpspec": "^5.1|^6.1",
     "freedsx/asn1": "^0.4.0",
     "friends-of-phpspec/phpspec-code-coverage": "^4.3",
-    "phpstan/phpstan": "^0.11.15",
-    "phpstan/phpstan-strict-rules": "^0.11.1"
+    "phpstan/phpstan": "^0.12"
   },
   "suggest": {
     "ext-openssl": "For SSL/TLS support.",
