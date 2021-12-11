@@ -115,7 +115,7 @@ abstract class MessageQueue
 
     protected function hasConsumableBuffer(): bool
     {
-        return \strlen($this->toConsume) !== 0;
+        return \strlen((string)$this->toConsume) !== 0;
     }
 
     /**
