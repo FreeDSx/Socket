@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.4.1 (2021-12-11)
+------------------
+* Support PHP 8.0 / 8.1.
+
 0.4.0 (2019-12-14)
 ------------------
 * Change how the MessageQueue handles buffered data. It now supports an optional MessageWrapper.
