@@ -13,7 +13,7 @@ namespace FreeDSx\Socket;
 use FreeDSx\Socket\Exception\ConnectionException;
 
 /**
- * Given a selection of hosts, connect to one and return the TCP Socket.
+ * Given a selection of hosts, connect to one and return the Socket.
  *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
@@ -31,7 +31,7 @@ class SocketPool
     /**
      * @var array
      */
-    protected $tcpOpts = [
+    protected $socketOpts = [
         'use_ssl',
         'ssl_validate_cert',
         'ssl_allow_self_signed',
@@ -41,6 +41,7 @@ class SocketPool
         'timeout_connect',
         'timeout_read',
         'port',
+        'transport',
     ];
 
     /**
@@ -59,34 +60,37 @@ class SocketPool
         $hosts = ($hostname !== '') ? [$hostname] : (array) $this->options['servers'];
 
         $lastEx = null;
-        $tcp = null;
+        $socket = null;
         foreach ($hosts as $host) {
             try {
-                $tcp = Socket::create($host, $this->getTcpOptions());
+                $socket = Socket::create(
+                    $host,
+                    $this->getSocketOptions()
+                );
                 break;
             } catch (\Exception $e) {
                 $lastEx = $e;
             }
         }
 
-        if ($tcp === null) {
+        if ($socket === null) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to server(s): %s',
                 implode(',', $hosts)
             ), 0, $lastEx);
         }
 
-        return $tcp;
+        return $socket;
     }
 
     /**
      * @return array
      */
-    protected function getTcpOptions() : array
+    protected function getSocketOptions() : array
     {
         $opts = [];
 
-        foreach ($this->tcpOpts as $name) {
+        foreach ($this->socketOpts as $name) {
             if (isset($this->options[$name])) {
                 $opts[$name] = $this->options[$name];
             }
