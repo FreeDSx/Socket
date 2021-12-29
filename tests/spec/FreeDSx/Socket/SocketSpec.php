@@ -11,6 +11,7 @@
 namespace spec\FreeDSx\Socket;
 
 use FreeDSx\Socket\Socket;
+use PhpSpec\Exception\Example\SkippingException;
 use PhpSpec\ObjectBehavior;
 
 class SocketSpec extends ObjectBehavior
@@ -42,6 +43,14 @@ class SocketSpec extends ObjectBehavior
         $this::create('www.google.com', ['port' => 80])->shouldBeAnInstanceOf(Socket::class);
     }
 
+    function it_should_create_a_unix_based_socket()
+    {
+        if (!file_exists('/var/run/docker.sock')) {
+            throw new SkippingException('The /var/run/docker.sock file must exist to test unix sockets.');
+        }
+        $this::unix('/var/run/docker.sock');
+    }
+
     function it_should_create_a_tcp_based_socket()
     {
         $this::tcp('www.google.com', ['port' => 80])->getOptions()->shouldHaveKeyWithValue('transport', 'tcp');
@@ -69,6 +78,18 @@ class SocketSpec extends ObjectBehavior
     function it_should_tell_whether_or_not_it_is_connected_for_udp()
     {
         $this->beConstructedThrough('udp', ['www.google.com', ['port' => 53]]);
+
+        $this->isConnected()->shouldBeEqualTo(true);
+        $this->close();
+        $this->isConnected()->shouldBeEqualTo(false);
+    }
+
+    function it_should_tell_whether_it_is_connected_for_unix()
+    {
+        if (!file_exists('/var/run/docker.sock')) {
+            throw new SkippingException('The /var/run/docker.sock file must exist to test unix sockets.');
+        }
+        $this->beConstructedThrough('unix', ['/var/run/docker.sock']);
 
         $this->isConnected()->shouldBeEqualTo(true);
         $this->close();

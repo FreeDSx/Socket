@@ -25,6 +25,7 @@ class Socket
     public const TRANSPORTS = [
         'tcp',
         'udp',
+        'unix',
     ];
 
     /**
@@ -223,7 +224,12 @@ class Socket
         if ($transport === 'tcp' && (bool) $this->options['use_ssl'] === true) {
             $transport = 'ssl';
         }
-        $uri = $transport.'://'.$host.':'.$this->options['port'];
+
+        $uri = $transport . '://' . $host;
+
+        if ($transport !== 'unix') {
+            $uri .= ':' . $this->options['port'];
+        }
 
         $socket = @\stream_socket_client(
             $uri,
@@ -268,6 +274,27 @@ class Socket
     public static function create(string $host, array $options = []) : Socket
     {
         return (new self(null, $options))->connect($host);
+    }
+
+    /**
+     * Create a UNIX based socket.
+     *
+     * @param string $file The full path to the unix socket.
+     * @param array $options Any additional options.
+     * @return Socket
+     * @throws ConnectionException
+     */
+    public static function unix(
+        string $file,
+        array $options = []
+    ): Socket {
+        return self::create(
+            $file,
+            \array_merge(
+                $options,
+                ['transport' => 'unix']
+            )
+        );
     }
 
     /**
