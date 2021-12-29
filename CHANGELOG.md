@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.5.1 (2021-12-29)
+------------------
+* Support constructing a socket pool from a unix socket.
+
 0.5.0 (2021-12-29)
 ------------------
 * Support creating unix based sockets with the client.
