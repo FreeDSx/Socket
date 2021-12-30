@@ -61,7 +61,6 @@ class SocketServerSpec extends ObjectBehavior
     function it_should_receive_data()
     {
         $this->beConstructedThrough('bindUdp', ['0.0.0.0', 33389]);
-        $this->getOptions();
 
         $socket = Socket::udp('127.0.0.1', ['port' => 33389]);
         $socket->write('foo');

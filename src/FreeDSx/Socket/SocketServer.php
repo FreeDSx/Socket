@@ -23,6 +23,7 @@ class SocketServer extends Socket
      * @var array
      */
     protected $serverOpts = [
+        'use_ssl' => false,
         'ssl_cert' => null,
         'ssl_cert_key' => null,
         'ssl_cert_passphrase' => null,
@@ -59,8 +60,12 @@ class SocketServer extends Socket
         if ($this->options['transport'] !== 'udp') {
             $flags |= STREAM_SERVER_LISTEN;
         }
+        $transport = $this->options['transport'];
+        if ($transport === 'tcp' && $this->options['use_ssl'] === true) {
+            $transport = 'ssl';
+        }
         $socket = @\stream_socket_server(
-            $this->options['transport'].'://'.$ip.':'.$port,
+            $transport.'://'.$ip.':'.$port,
             $this->errorNumber,
             $this->errorMessage,
             $flags,
