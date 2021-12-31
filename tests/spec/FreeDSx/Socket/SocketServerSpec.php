@@ -17,14 +17,20 @@ use PhpSpec\ObjectBehavior;
 
 class SocketServerSpec extends ObjectBehavior
 {
+    private $testSocket = '';
+
     function let()
     {
+        $this->testSocket = sys_get_temp_dir() . '/phpspec.socket';
         $this->beConstructedThrough('bind', ['0.0.0.0', 33389]);
     }
 
     function letGo()
     {
         @$this->close();
+        if ($this->testSocket && file_exists($this->testSocket)) {
+            @unlink($this->testSocket);
+        }
     }
 
     function it_is_initializable()
@@ -60,7 +66,7 @@ class SocketServerSpec extends ObjectBehavior
 
     function it_should_construct_a_unix_based_socket_server()
     {
-        $this->beConstructedThrough('bindUnix', [sys_get_temp_dir() . '/phpspec.socket']);
+        $this->beConstructedThrough('bindUnix', [$this->testSocket]);
 
         $this->getOptions()->shouldHaveKeyWithValue('transport', 'unix');
     }
