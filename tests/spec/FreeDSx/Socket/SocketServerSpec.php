@@ -58,6 +58,13 @@ class SocketServerSpec extends ObjectBehavior
         $this->getOptions()->shouldHaveKeyWithValue('transport', 'udp');
     }
 
+    function it_should_construct_a_unix_based_socket_server()
+    {
+        $this->beConstructedThrough('bindUnix', [sys_get_temp_dir() . '/phpspec.socket']);
+
+        $this->getOptions()->shouldHaveKeyWithValue('transport', 'unix');
+    }
+
     function it_should_receive_data()
     {
         $this->beConstructedThrough('bindUdp', ['0.0.0.0', 33389]);
