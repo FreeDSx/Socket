@@ -28,6 +28,7 @@ class SocketSpec extends ObjectBehavior
             'port' => 389,
             'use_ssl' => false,
             'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
+            'ssl_ciphers' => 'DEFAULT',
             'ssl_validate_cert' => true,
             'ssl_allow_self_signed' => null,
             'ssl_ca_cert' => null,

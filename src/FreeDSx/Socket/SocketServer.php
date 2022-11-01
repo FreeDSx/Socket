@@ -36,6 +36,7 @@ class SocketServer extends Socket
         'ssl_cert' => null,
         'ssl_cert_key' => null,
         'ssl_cert_passphrase' => null,
+        'ssl_ciphers' => 'DEFAULT',
         'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLS_SERVER,
         'ssl_validate_cert' => false,
         'idle_timeout' => 600,
