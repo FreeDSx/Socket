@@ -59,7 +59,8 @@ class Socket
     protected $sslOptsMap = [
         'ssl_allow_self_signed' => 'allow_self_signed',
         'ssl_ca_cert' => 'cafile',
-        'ssl_crypto_type' => 'crypto_type',
+        'ssl_crypto_method' => 'crypto_method',
+        'ssl_ciphers' => 'ciphers',
         'ssl_peer_name' => 'peer_name',
         'ssl_cert' => 'local_cert',
         'ssl_cert_key' => 'local_pk',
@@ -84,7 +85,8 @@ class Socket
         'transport' => 'tcp',
         'port' => 389,
         'use_ssl' => false,
-        'ssl_crypto_type' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
+        'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
+        'ssl_ciphers' => 'DEFAULT',
         'ssl_validate_cert' => true,
         'ssl_allow_self_signed' => null,
         'ssl_ca_cert' => null,
@@ -198,7 +200,7 @@ class Socket
     public function encrypt(bool $encrypt)
     {
         \stream_set_blocking($this->socket, true);
-        $result = \stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_type']);
+        $result = \stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_method']);
         \stream_set_blocking($this->socket, false);
 
         if ((bool) $result == false) {
