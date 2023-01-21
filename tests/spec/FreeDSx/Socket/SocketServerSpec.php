@@ -56,6 +56,9 @@ class SocketServerSpec extends ObjectBehavior
         $this->beConstructedThrough('bindTcp', ['0.0.0.0', 33389]);
 
         $this->getOptions()->shouldHaveKeyWithValue('transport', 'tcp');
+        $this->isConnected()->shouldBeEqualTo(true);
+        $this->close();
+        $this->isConnected()->shouldBeEqualTo(false);
     }
 
     function it_should_construct_a_udp_based_socket_server()
@@ -74,6 +77,9 @@ class SocketServerSpec extends ObjectBehavior
         $this->beConstructedThrough('bindUnix', [$this->testSocket]);
 
         $this->getOptions()->shouldHaveKeyWithValue('transport', 'unix');
+        $this->isConnected()->shouldBeEqualTo(true);
+        $this->close();
+        $this->isConnected()->shouldBeEqualTo(false);
     }
 
     function it_should_receive_data()

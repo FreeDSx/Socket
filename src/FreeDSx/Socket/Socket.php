@@ -164,7 +164,9 @@ class Socket
      */
     public function isConnected() : bool
     {
-        return $this->socket !== null && !@\feof($this->socket);
+        // The is_resource() function will also check if a resource is connected or not.
+        // Previously this used feof(), which was no reliable on PHP 8.2 with certain transports.
+        return \is_resource($this->socket);
     }
 
     /**
