@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+0.6.0 (2023-01-21)
+------------------
+* Fix SSL based option mappings (ssl_crypto_type).
+* Fix how Socket::isConnected is determined. The feof behavior was unreliable in PHP 8.2.
+
 0.5.2 (2021-12-31)
 ------------------
 * Support constructing a socket server from a unix socket.
