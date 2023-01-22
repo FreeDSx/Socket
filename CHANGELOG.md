@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.6.1 (2023-01-21)
+------------------
+* Slight optimization for Socket::isConnected when not using a unix based socket.
+
 0.6.0 (2023-01-21)
 ------------------
 * Fix SSL based option mappings (ssl_crypto_type).
