@@ -164,8 +164,17 @@ class Socket
      */
     public function isConnected() : bool
     {
+        if ($this->socket === null) {
+            return false;
+        }
+
+        // Slight optimization. The feof() method should be more accurate and unix socket should be less likely.
+        // In PHP 8.2 feof is not accurate for checking a UNIX socket.
+        if ($this->options['transport'] !== 'unix') {
+            return !@\feof($this->socket);
+        }
+
         // The is_resource() function will also check if a resource is connected or not.
-        // Previously this used feof(), which was no reliable on PHP 8.2 with certain transports.
         return \is_resource($this->socket);
     }
 
