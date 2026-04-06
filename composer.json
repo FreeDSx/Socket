@@ -18,10 +18,10 @@
     "php": ">=7.1"
   },
   "require-dev": {
-    "phpspec/phpspec": "^5.1|^6.1|^7.1",
+    "phpspec/phpspec": "^7.1|^8.0",
     "freedsx/asn1": "^0.4.0",
-    "friends-of-phpspec/phpspec-code-coverage": "^4.3|^6.1",
-    "phpstan/phpstan": "^0.12"
+    "friends-of-phpspec/phpspec-code-coverage": "^6.1|^7.0",
+    "phpstan/phpstan": "^2.0"
   },
   "suggest": {
     "ext-openssl": "For SSL/TLS support.",
