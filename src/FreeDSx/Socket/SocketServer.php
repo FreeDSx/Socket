@@ -29,7 +29,7 @@ class SocketServer extends Socket
     ];
 
     /**
-     * @var array
+     * @var array<string, mixed>
      */
     protected $serverOpts = [
         'use_ssl' => false,
@@ -48,7 +48,7 @@ class SocketServer extends Socket
     protected $clients = [];
 
     /**
-     * @param array $options
+     * @param array<string, mixed> $options
      */
     public function __construct(array $options = [])
     {
@@ -173,7 +173,7 @@ class SocketServer extends Socket
      *
      * @param string $ip
      * @param int|null $port
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return SocketServer
      * @throws ConnectionException
      */
@@ -193,7 +193,7 @@ class SocketServer extends Socket
      *
      * @param string $ip
      * @param int $port
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return SocketServer
      * @throws ConnectionException
      */
@@ -217,7 +217,7 @@ class SocketServer extends Socket
      *
      * @param string $ip
      * @param int $port
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return SocketServer
      * @throws ConnectionException
      */
@@ -240,7 +240,7 @@ class SocketServer extends Socket
      * Created a UNIX based socket server.
      *
      * @param string $socketFile
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return SocketServer
      * @throws ConnectionException
      */

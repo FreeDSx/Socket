@@ -54,7 +54,7 @@ class Socket
     protected $errorNumber;
 
     /**
-     * @var array
+     * @var array<string, string>
      */
     protected $sslOptsMap = [
         'ssl_allow_self_signed' => 'allow_self_signed',
@@ -68,7 +68,7 @@ class Socket
     ];
 
     /**
-     * @var array
+     * @var array<string, bool>
      */
     protected $sslOpts = [
         'allow_self_signed' => false,
@@ -79,7 +79,7 @@ class Socket
     ];
 
     /**
-     * @var array
+     * @var array<string, mixed>
      */
     protected $options = [
         'transport' => 'tcp',
@@ -98,7 +98,7 @@ class Socket
 
     /**
      * @param resource|null $resource
-     * @param array $options
+     * @param array<string, mixed> $options
      */
     public function __construct($resource = null, array $options = [])
     {
@@ -269,7 +269,7 @@ class Socket
     /**
      * Get the options set for the socket.
      *
-     * @return array
+     * @return array<string, mixed>
      */
     public function getOptions() : array
     {
@@ -280,7 +280,7 @@ class Socket
      * Create a socket by connecting to a specific host.
      *
      * @param string $host
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return Socket
      * @throws ConnectionException
      */
@@ -293,7 +293,7 @@ class Socket
      * Create a UNIX based socket.
      *
      * @param string $file The full path to the unix socket.
-     * @param array $options Any additional options.
+     * @param array<string, mixed> $options Any additional options.
      * @return Socket
      * @throws ConnectionException
      */
@@ -314,7 +314,7 @@ class Socket
      * Create a TCP based socket.
      *
      * @param string $host
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return Socket
      * @throws ConnectionException
      */
@@ -327,7 +327,7 @@ class Socket
      * Create a UDP based socket.
      *
      * @param string $host
-     * @param array $options
+     * @param array<string, mixed> $options
      * @return Socket
      * @throws ConnectionException
      */

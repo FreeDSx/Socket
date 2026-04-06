@@ -2,6 +2,5 @@ parameters:
     level: 6
     paths:
         - %currentWorkingDirectory%/src
-    checkMissingIterableValueType: false
+    phpVersion: 70100
     treatPhpDocTypesAsCertain: false
-    checkGenericClassInNonGenericObjectType: false

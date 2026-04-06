@@ -20,7 +20,7 @@ use FreeDSx\Socket\Exception\ConnectionException;
 class SocketPool
 {
     /**
-     * @var array
+     * @var array<string, mixed>
      */
     protected $options = [
         'servers' => [],
@@ -29,7 +29,7 @@ class SocketPool
     ];
 
     /**
-     * @var array
+     * @var list<string>
      */
     protected $socketOpts = [
         'use_ssl',
@@ -45,7 +45,7 @@ class SocketPool
     ];
 
     /**
-     * @param array $options
+     * @param array<string, mixed> $options
      */
     public function __construct(array $options)
     {
@@ -84,7 +84,7 @@ class SocketPool
     }
 
     /**
-     * @return array
+     * @return array<string, mixed>
      */
     protected function getSocketOptions() : array
     {
