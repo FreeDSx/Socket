@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.6.2 (2026-04-05)
+------------------
+* Allow SocketServer::accept to take a float.
+
 0.6.1 (2023-01-21)
 ------------------
 * Slight optimization for Socket::isConnected when not using a unix based socket.

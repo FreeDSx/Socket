@@ -118,11 +118,7 @@ class SocketServer extends Socket
         return $this;
     }
 
-    /**
-     * @param int $timeout
-     * @return null|Socket
-     */
-    public function accept(int $timeout = -1): ?Socket
+    public function accept(float $timeout = -1.0): ?Socket
     {
         $socket = @\stream_socket_accept($this->socket, $timeout);
         if (\is_resource($socket)) {
