@@ -19,7 +19,7 @@
   },
   "require-dev": {
     "phpspec/phpspec": "^7.1|^8.0",
-    "freedsx/asn1": "^0.4.0",
+    "freedsx/asn1": ">=0.4, <1.0",
     "friends-of-phpspec/phpspec-code-coverage": "^6.1|^7.0",
     "phpstan/phpstan": "^2.0"
   },
@@ -31,10 +31,7 @@
     "psr-4": {"FreeDSx\\Socket\\": "src/FreeDSx/Socket"}
   },
   "autoload-dev": {
-    "psr-4": {
-      "fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket",
-      "spec\\FreeDSx\\Socket\\": "tests/spec/FreeDSx/Socket"
-    }
+    "psr-4": {"fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket"}
   },
   "scripts": {
     "test-coverage": [

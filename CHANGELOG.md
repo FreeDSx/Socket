@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+0.6.3 (2026-04-25)
+------------------
+* Lock FreeDSx dependencies to prepare for a 1.0 release. This will be the final 0.x release.
+
 0.6.2 (2026-04-05)
 ------------------
 * Allow SocketServer::accept to take a float.
