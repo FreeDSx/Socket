@@ -13,12 +13,11 @@ namespace spec\FreeDSx\Socket;
 use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketServer;
+use PhpSpec\Exception\Example\SkippingException;
 use PhpSpec\ObjectBehavior;
 
 class SocketServerSpec extends ObjectBehavior
 {
-    use RequiresUnixTransport;
-
     private $testSocket = '';
 
     function let()
@@ -71,7 +70,9 @@ class SocketServerSpec extends ObjectBehavior
 
     function it_should_construct_a_unix_based_socket_server()
     {
-        $this->requireUnixTransport();
+        if (stripos(PHP_OS, 'WIN') === 0) {
+            throw new SkippingException('Unix socket not available in Windows.');
+        }
 
         $this->beConstructedThrough('bindUnix', [$this->testSocket]);
 

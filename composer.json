@@ -31,10 +31,7 @@
     "psr-4": {"FreeDSx\\Socket\\": "src/FreeDSx/Socket"}
   },
   "autoload-dev": {
-    "psr-4": {
-      "fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket",
-      "spec\\FreeDSx\\Socket\\": "tests/spec/FreeDSx/Socket"
-    }
+    "psr-4": {"fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket"}
   },
   "scripts": {
     "test-coverage": [

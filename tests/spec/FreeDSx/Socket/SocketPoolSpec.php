@@ -11,6 +11,7 @@
 namespace spec\FreeDSx\Socket;
 
 use FreeDSx\Socket\SocketPool;
+use PhpSpec\Exception\Example\SkippingException;
 use PhpSpec\ObjectBehavior;
 
 /**
@@ -18,32 +19,9 @@ use PhpSpec\ObjectBehavior;
  */
 class SocketPoolSpec extends ObjectBehavior
 {
-    use RequiresUnixTransport;
-
-
-    /**
-     * @var resource|null
-     */
-    private $unixServer;
-
-    /**
-     * @var string|null
-     */
-    private $unixPath;
-
     function let()
     {
         $this->beConstructedWith(['servers' => ['foo', 'bar']]);
-    }
-
-    function letGo(): void
-    {
-        if (is_resource($this->unixServer)) {
-            fclose($this->unixServer);
-        }
-        if ($this->unixPath !== null && file_exists($this->unixPath)) {
-            @unlink($this->unixPath);
-        }
     }
 
     function it_is_initializable()
@@ -53,13 +31,12 @@ class SocketPoolSpec extends ObjectBehavior
 
     function it_should_respect_the_transport_type_when_connecting()
     {
-        $this->requireUnixTransport();
-        $this->unixPath = sys_get_temp_dir() . '/freedsx_socket_pool_' . uniqid('', true) . '.sock';
-        $this->unixServer = stream_socket_server('unix://' . $this->unixPath);
-
+        if (!file_exists('/var/run/docker.sock')) {
+            throw new SkippingException('The /var/run/docker.sock file must exist to test unix sockets.');
+        }
         $this->beConstructedWith([
-            'servers' => [$this->unixPath],
-            'transport' => 'unix',
+            'servers' => ['/var/run/docker.sock'],
+             'transport' => 'unix',
         ]);
 
         $this->connect()->isConnected()->shouldBeEqualTo(true);

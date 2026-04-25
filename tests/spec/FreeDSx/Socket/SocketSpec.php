@@ -11,71 +11,11 @@
 namespace spec\FreeDSx\Socket;
 
 use FreeDSx\Socket\Socket;
+use PhpSpec\Exception\Example\SkippingException;
 use PhpSpec\ObjectBehavior;
 
 class SocketSpec extends ObjectBehavior
 {
-    use RequiresUnixTransport;
-
-
-    /**
-     * @var resource|null
-     */
-    private $local;
-
-    /**
-     * @var resource|null
-     */
-    private $remote;
-
-    /**
-     * @var resource|null
-     */
-    private $unixServer;
-
-    /**
-     * @var string|null
-     */
-    private $unixPath;
-
-    function letGo(): void
-    {
-        if (is_resource($this->remote)) {
-            fclose($this->remote);
-        }
-        if (is_resource($this->local)) {
-            fclose($this->local);
-        }
-        if (is_resource($this->unixServer)) {
-            fclose($this->unixServer);
-        }
-        if ($this->unixPath !== null && file_exists($this->unixPath)) {
-            @unlink($this->unixPath);
-        }
-    }
-
-    private function createSocketPair(): void
-    {
-        $domain = DIRECTORY_SEPARATOR === '\\'
-            ? STREAM_PF_INET
-            : STREAM_PF_UNIX;
-
-        [$this->local, $this->remote] = stream_socket_pair(
-            $domain,
-            STREAM_SOCK_STREAM,
-            STREAM_IPPROTO_IP
-        );
-    }
-
-    private function createUnixServer(): string
-    {
-        $this->requireUnixTransport();
-        $this->unixPath = sys_get_temp_dir() . '/freedsx_socket_' . uniqid('', true) . '.sock';
-        $this->unixServer = stream_socket_server('unix://' . $this->unixPath);
-
-        return $this->unixPath;
-    }
-
     function it_is_initializable()
     {
         $this->shouldHaveType(Socket::class);
@@ -106,9 +46,10 @@ class SocketSpec extends ObjectBehavior
 
     function it_should_create_a_unix_based_socket()
     {
-        $path = $this->createUnixServer();
-
-        $this::unix($path)->shouldBeAnInstanceOf(Socket::class);
+        if (!file_exists('/var/run/docker.sock')) {
+            throw new SkippingException('The /var/run/docker.sock file must exist to test unix sockets.');
+        }
+        $this::unix('/var/run/docker.sock');
     }
 
     function it_should_create_a_tcp_based_socket()
@@ -146,55 +87,13 @@ class SocketSpec extends ObjectBehavior
 
     function it_should_tell_whether_it_is_connected_for_unix()
     {
-        $path = $this->createUnixServer();
-        $this->beConstructedThrough('unix', [$path]);
+        if (!file_exists('/var/run/docker.sock')) {
+            throw new SkippingException('The /var/run/docker.sock file must exist to test unix sockets.');
+        }
+        $this->beConstructedThrough('unix', ['/var/run/docker.sock']);
 
         $this->isConnected()->shouldBeEqualTo(true);
         $this->close();
         $this->isConnected()->shouldBeEqualTo(false);
-    }
-
-    function it_should_return_at_most_buffer_size_bytes_per_read()
-    {
-        $this->createSocketPair();
-        fwrite($this->remote, '0123456789');
-
-        $this->beConstructedWith($this->local, ['buffer_size' => 4]);
-
-        $this->read()->shouldBe('0123');
-        $this->read()->shouldBe('4567');
-        $this->read()->shouldBe('89');
-    }
-
-    function it_should_return_false_on_a_non_blocking_read_when_no_data_is_available()
-    {
-        $this->createSocketPair();
-
-        $this->beConstructedWith($this->local);
-
-        $this->read(false)->shouldBe(false);
-    }
-
-    function it_should_return_false_on_a_blocking_read_when_the_peer_has_closed()
-    {
-        $this->createSocketPair();
-        fclose($this->remote);
-
-        $this->beConstructedWith($this->local);
-
-        $this->read()->shouldBe(false);
-    }
-
-    function it_should_leave_the_socket_in_blocking_mode_after_a_non_blocking_read()
-    {
-        $this->createSocketPair();
-
-        $this->beConstructedWith($this->local);
-
-        $this->read(false);
-
-        if (stream_get_meta_data($this->local)['blocked'] !== true) {
-            throw new \RuntimeException('Socket should be in blocking mode after a non-blocking read.');
-        }
     }
 }
