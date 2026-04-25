@@ -19,7 +19,7 @@
   },
   "require-dev": {
     "phpspec/phpspec": "^7.1|^8.0",
-    "freedsx/asn1": "^0.4.0",
+    "freedsx/asn1": ">=0.4, <1.0",
     "friends-of-phpspec/phpspec-code-coverage": "^6.1|^7.0",
     "phpstan/phpstan": "^2.0"
   },
