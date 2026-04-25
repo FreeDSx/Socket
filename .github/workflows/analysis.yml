@@ -30,7 +30,9 @@ jobs:
         run: composer install --no-progress --prefer-dist --optimize-autoloader
 
       - name: Run Static Analysis
-        run: composer run-script analyse
+        run: |
+          composer run-script analyse
+          composer run-script analyse-tests
 
       - name: Run Test Coverage
         run: composer run-script test-coverage

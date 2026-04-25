@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -9,16 +11,14 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\FreeDSx\Socket;
-
-use PhpSpec\Exception\Example\SkippingException;
+namespace Tests\Unit\FreeDSx\Socket;
 
 trait RequiresUnixTransport
 {
     private function requireUnixTransport(): void
     {
         if (!in_array('unix', stream_get_transports(), true)) {
-            throw new SkippingException('The "unix" stream transport is not available on this platform.');
+            self::markTestSkipped('The "unix" stream transport is not available on this platform.');
         }
     }
 }

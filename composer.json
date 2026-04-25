@@ -15,13 +15,14 @@
     }
   ],
   "require": {
-    "php": ">=7.1"
+    "php": ">=8.2"
   },
   "require-dev": {
-    "phpspec/phpspec": "^7.1|^8.0",
     "freedsx/asn1": ">=0.4, <1.0",
-    "friends-of-phpspec/phpspec-code-coverage": "^6.1|^7.0",
-    "phpstan/phpstan": "^2.0"
+    "phpunit/phpunit": "^11.5",
+    "phpstan/phpstan": "^2.0",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "phpstan/extension-installer": "^1.4"
   },
   "suggest": {
     "ext-openssl": "For SSL/TLS support.",
@@ -32,19 +33,26 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "fixture\\FreeDSx\\Socket\\": "tests/fixture/FreeDSx/Socket",
-      "spec\\FreeDSx\\Socket\\": "tests/spec/FreeDSx/Socket"
+      "Tests\\Unit\\FreeDSx\\Socket\\": "tests/unit"
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "phpstan/extension-installer": true
     }
   },
   "scripts": {
-    "test-coverage": [
-      "phpspec run --no-interaction -c phpspec.cov.yml"
+    "test-unit": [
+      "@php -d xdebug.mode=off vendor/bin/phpunit --testsuite unit"
     ],
-    "test": [
-      "phpspec run --no-interaction"
+    "test-coverage": [
+      "@php -d xdebug.mode=coverage vendor/bin/phpunit --testsuite unit --coverage-clover=coverage.xml"
     ],
     "analyse": [
       "phpstan analyse"
+    ],
+    "analyse-tests": [
+      "phpstan analyse -c phpstan.tests.neon"
     ]
   }
 }

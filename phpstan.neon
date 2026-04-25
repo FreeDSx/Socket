@@ -2,5 +2,5 @@ parameters:
     level: 6
     paths:
         - %currentWorkingDirectory%/src
-    phpVersion: 70100
+    phpVersion: 80200
     treatPhpDocTypesAsCertain: false
