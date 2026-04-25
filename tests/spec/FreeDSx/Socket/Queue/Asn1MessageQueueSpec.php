@@ -58,4 +58,45 @@ class Asn1MessageQueueSpec extends ObjectBehavior
 
         $this->shouldThrow(ConnectionException::class)->duringGetMessage();
     }
+
+    function it_should_not_peek_the_socket_after_decoding_a_complete_message($socket, $encoder)
+    {
+        $socket->read()->willReturn('foo');
+        $socket->read(false)->shouldNotBeCalled();
+        $encoder->decode('foo')->shouldBeCalled()->willReturn(new IntegerType(100));
+        $encoder->getLastPosition()->willReturn(3);
+
+        $this->getMessage()->shouldBeLike(new Pdu(new IntegerType(100)));
+    }
+
+    function it_should_yield_messages_continuously_from_the_generator($socket, $encoder)
+    {
+        $socket->read()->willReturn('foobar', 'baz');
+        $encoder->decode('foobar')->willReturn(new IntegerType(1));
+        $encoder->decode('bar')->willReturn(new IntegerType(2));
+        $encoder->decode('baz')->willReturn(new IntegerType(3));
+        $encoder->getLastPosition()->willReturn(3);
+
+        $iter = $this->getMessages()->getWrappedObject();
+
+        if (!$iter instanceof \Generator) {
+            throw new \RuntimeException('getMessages() must return a Generator.');
+        }
+
+        $first = $iter->current();
+        $iter->next();
+        $second = $iter->current();
+        $iter->next();
+        $third = $iter->current();
+
+        if ($first != new Pdu(new IntegerType(1))) {
+            throw new \RuntimeException('First yielded message did not match.');
+        }
+        if ($second != new Pdu(new IntegerType(2))) {
+            throw new \RuntimeException('Second yielded message did not match.');
+        }
+        if ($third != new Pdu(new IntegerType(3))) {
+            throw new \RuntimeException('Third yielded message did not match.');
+        }
+    }
 }
