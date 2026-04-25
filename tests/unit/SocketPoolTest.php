@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -8,35 +11,23 @@
  * file that was distributed with this source code.
  */
 
-namespace spec\FreeDSx\Socket;
+namespace Tests\Unit\FreeDSx\Socket;
 
 use FreeDSx\Socket\SocketPool;
-use PhpSpec\ObjectBehavior;
+use PHPUnit\Framework\TestCase;
 
-/**
- * @todo Need to find a way to spec this properly.
- */
-class SocketPoolSpec extends ObjectBehavior
+final class SocketPoolTest extends TestCase
 {
     use RequiresUnixTransport;
-
 
     /**
      * @var resource|null
      */
     private $unixServer;
 
-    /**
-     * @var string|null
-     */
-    private $unixPath;
+    private ?string $unixPath = null;
 
-    function let()
-    {
-        $this->beConstructedWith(['servers' => ['foo', 'bar']]);
-    }
-
-    function letGo(): void
+    protected function tearDown(): void
     {
         if (is_resource($this->unixServer)) {
             fclose($this->unixServer);
@@ -46,22 +37,21 @@ class SocketPoolSpec extends ObjectBehavior
         }
     }
 
-    function it_is_initializable()
-    {
-        $this->shouldHaveType(SocketPool::class);
-    }
-
-    function it_should_respect_the_transport_type_when_connecting()
+    public function test_it_should_respect_the_transport_type_when_connecting(): void
     {
         $this->requireUnixTransport();
         $this->unixPath = sys_get_temp_dir() . '/freedsx_socket_pool_' . uniqid('', true) . '.sock';
-        $this->unixServer = stream_socket_server('unix://' . $this->unixPath);
+        $server = stream_socket_server('unix://' . $this->unixPath);
+        if ($server === false) {
+            self::fail('Failed to create unix socket server.');
+        }
+        $this->unixServer = $server;
 
-        $this->beConstructedWith([
+        $subject = new SocketPool([
             'servers' => [$this->unixPath],
             'transport' => 'unix',
         ]);
 
-        $this->connect()->isConnected()->shouldBeEqualTo(true);
+        self::assertTrue($subject->connect()->isConnected());
     }
 }
