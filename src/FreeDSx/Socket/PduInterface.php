@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -19,14 +22,7 @@ use FreeDSx\Asn1\Type\AbstractType;
  */
 interface PduInterface
 {
-    /**
-     * @return AbstractType
-     */
-    public function toAsn1() : AbstractType;
+    public function toAsn1(): AbstractType;
 
-    /**
-     * @param AbstractType $asn1
-     * @return mixed
-     */
-    public static function fromAsn1(AbstractType $asn1);
+    public static function fromAsn1(AbstractType $asn1): mixed;
 }

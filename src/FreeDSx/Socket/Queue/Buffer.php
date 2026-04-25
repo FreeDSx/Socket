@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -15,39 +18,19 @@ namespace FreeDSx\Socket\Queue;
  *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
-class Buffer
+readonly final class Buffer
 {
-    /**
-     * @var string
-     */
-    protected $bytes;
-
-    /**
-     * @var int
-     */
-    protected $endsAt;
-
-    /**
-     * @param string $bytes
-     * @param int $endsAt
-     */
-    public function __construct($bytes, int $endsAt)
-    {
-        $this->bytes = $bytes;
-        $this->endsAt = $endsAt;
+    public function __construct(
+        protected string $bytes,
+        protected int $endsAt,
+    ) {
     }
 
-    /**
-     * @return string
-     */
-    public function bytes()
+    public function bytes(): string
     {
         return $this->bytes;
     }
 
-    /**
-     * @return int
-     */
     public function endsAt(): int
     {
         return $this->endsAt;

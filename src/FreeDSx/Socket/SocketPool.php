@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -22,7 +25,7 @@ class SocketPool
     /**
      * @var array<string, mixed>
      */
-    protected $options = [
+    protected array $options = [
         'servers' => [],
         'port' => 389,
         'timeout_connect' => 1,
@@ -31,7 +34,7 @@ class SocketPool
     /**
      * @var list<string>
      */
-    protected $socketOpts = [
+    protected array $socketOpts = [
         'use_ssl',
         'ssl_validate_cert',
         'ssl_allow_self_signed',
@@ -55,7 +58,7 @@ class SocketPool
     /**
      * @throws ConnectionException
      */
-    public function connect(string $hostname = '') : Socket
+    public function connect(string $hostname = ''): Socket
     {
         $hosts = ($hostname !== '') ? [$hostname] : (array) $this->options['servers'];
 
@@ -64,8 +67,8 @@ class SocketPool
         foreach ($hosts as $host) {
             try {
                 $socket = Socket::create(
-                    $host,
-                    $this->getSocketOptions()
+                    (string) $host,
+                    $this->getSocketOptions(),
                 );
                 break;
             } catch (\Exception $e) {
@@ -76,7 +79,7 @@ class SocketPool
         if ($socket === null) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to server(s): %s',
-                implode(',', $hosts)
+                implode(',', $hosts),
             ), 0, $lastEx);
         }
 
@@ -86,7 +89,7 @@ class SocketPool
     /**
      * @return array<string, mixed>
      */
-    protected function getSocketOptions() : array
+    protected function getSocketOptions(): array
     {
         $opts = [];
 

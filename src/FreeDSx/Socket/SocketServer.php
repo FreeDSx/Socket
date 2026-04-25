@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -11,6 +14,13 @@
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use function array_search;
+use function array_values;
+use function in_array;
+use function is_resource;
+use function stream_socket_accept;
+use function stream_socket_recvfrom;
+use function stream_socket_server;
 
 /**
  * TCP socket server to accept client connections.
@@ -31,7 +41,7 @@ class SocketServer extends Socket
     /**
      * @var array<string, mixed>
      */
-    protected $serverOpts = [
+    protected array $serverOpts = [
         'use_ssl' => false,
         'ssl_cert' => null,
         'ssl_cert_key' => null,
@@ -43,9 +53,9 @@ class SocketServer extends Socket
     ];
 
     /**
-     * @var Socket[]
+     * @var list<Socket>
      */
-    protected $clients = [];
+    protected array $clients = [];
 
     /**
      * @param array<string, mixed> $options
@@ -56,14 +66,14 @@ class SocketServer extends Socket
             null,
             \array_merge(
                 $this->serverOpts,
-                $options
-            )
+                $options,
+            ),
         );
-        if (!\in_array($this->options['transport'], self::TRANSPORTS, true)) {
+        if (!in_array($this->options['transport'], self::TRANSPORTS, true)) {
             throw new \RuntimeException(sprintf(
                 'The transport "%s" is not valid. It must be one of: %s',
                 $this->options['transport'],
-                implode(',', self::TRANSPORTS)
+                implode(',', self::TRANSPORTS),
             ));
         }
     }
@@ -71,14 +81,12 @@ class SocketServer extends Socket
     /**
      * Create the socket server and bind to a specific port to listen for clients.
      *
-     * @param string $ip
-     * @param int|null $port
-     * @return $this
      * @throws ConnectionException
-     * @internal param string $ip
      */
-    public function listen(string $ip, ?int $port): self
-    {
+    public function listen(
+        string $ip,
+        ?int $port,
+    ): static {
         $flags = STREAM_SERVER_BIND;
         if ($this->options['transport'] !== 'udp') {
             $flags |= STREAM_SERVER_LISTEN;
@@ -93,24 +101,29 @@ class SocketServer extends Socket
             throw new ConnectionException('The port must be set if not using a unix based socket.');
         }
 
-        $uri = $transport.'://'.$ip;
+        $uri = $transport . '://' . $ip;
         if ($port !== null && $transport !== 'unix') {
             $uri .= ':' . $port;
         }
 
-        $socket = @\stream_socket_server(
+        $errorNumber = 0;
+        $errorMessage = '';
+        $socket = @stream_socket_server(
             $uri,
-            $this->errorNumber,
-            $this->errorMessage,
+            $errorNumber,
+            $errorMessage,
             $flags,
-            $this->createSocketContext()
+            $this->createSocketContext(),
         );
+        $this->errorNumber = $errorNumber;
+        $this->errorMessage = $errorMessage;
+
         if ($socket === false) {
             throw new ConnectionException(sprintf(
                 'Unable to open %s socket (%s): %s',
-                \strtoupper($this->options['transport']),
+                \strtoupper((string) $this->options['transport']),
                 $this->errorNumber,
-                $this->errorMessage
+                $this->errorMessage,
             ));
         }
         $this->socket = $socket;
@@ -120,141 +133,135 @@ class SocketServer extends Socket
 
     public function accept(float $timeout = -1.0): ?Socket
     {
-        $socket = @\stream_socket_accept($this->socket, $timeout);
-        if (\is_resource($socket)) {
-            $socket = new Socket($socket, \array_merge($this->options, [
-                'timeout_read' => $this->options['idle_timeout']
-            ]));
-            $this->clients[] = $socket;
+        if ($this->socket === null) {
+            return null;
         }
 
-        return $socket instanceof Socket ? $socket : null;
+        $accepted = @stream_socket_accept($this->socket, $timeout);
+        if (!is_resource($accepted)) {
+            return null;
+        }
+
+        $client = new Socket($accepted, \array_merge($this->options, [
+            'timeout_read' => $this->options['idle_timeout'],
+        ]));
+        $this->clients[] = $client;
+
+        return $client;
     }
 
     /**
      * Receive data from a UDP based socket. Optionally get the IP address the data was received from.
      *
      * @todo Buffer size should be adjustable. Max UDP packet size is 65507. Currently this avoids possible truncation.
-     * @param null $ipAddress
-     * @return null|string
      */
-    public function receive(&$ipAddress = null)
+    public function receive(?string &$ipAddress = null): ?string
     {
         $this->block(true);
 
-        return \stream_socket_recvfrom(
+        $data = stream_socket_recvfrom(
             $this->socket,
             65507,
             0,
-            $ipAddress
+            $ipAddress,
         );
+
+        return $data === false ? null : $data;
     }
 
     /**
-     * @return Socket[]
+     * @return list<Socket>
      */
     public function getClients(): array
     {
         return $this->clients;
     }
 
-    /**
-     * @param Socket $socket
-     */
     public function removeClient(Socket $socket): void
     {
-        if (($index = \array_search($socket, $this->clients, true)) !== false) {
+        $index = array_search($socket, $this->clients, true);
+        if ($index !== false) {
             unset($this->clients[$index]);
+            $this->clients = array_values($this->clients);
         }
     }
 
     /**
-     * Create the socket server. Binds and listens on a specific port
+     * Create the socket server. Binds and listens on a specific port.
      *
-     * @param string $ip
-     * @param int|null $port
      * @param array<string, mixed> $options
-     * @return SocketServer
      * @throws ConnectionException
      */
     public static function bind(
         string $ip,
         ?int $port,
-        array $options = []
+        array $options = [],
     ): SocketServer {
         return (new self($options))->listen(
             $ip,
-            $port
+            $port,
         );
     }
 
     /**
      * Create a TCP based socket server.
      *
-     * @param string $ip
-     * @param int $port
      * @param array<string, mixed> $options
-     * @return SocketServer
      * @throws ConnectionException
      */
     public static function bindTcp(
         string $ip,
         int $port,
-        array $options = []
+        array $options = [],
     ): SocketServer {
-        return static::bind(
+        return self::bind(
             $ip,
             $port,
             \array_merge(
                 $options,
-                ['transport' => 'tcp']
-            )
+                ['transport' => 'tcp'],
+            ),
         );
     }
 
     /**
-     * Created a UDP based socket server.
+     * Create a UDP based socket server.
      *
-     * @param string $ip
-     * @param int $port
      * @param array<string, mixed> $options
-     * @return SocketServer
      * @throws ConnectionException
      */
     public static function bindUdp(
         string $ip,
         int $port,
-        array $options = []
+        array $options = [],
     ): SocketServer {
-        return static::bind(
+        return self::bind(
             $ip,
             $port,
             \array_merge(
                 $options,
-                ['transport' => 'udp']
-            )
+                ['transport' => 'udp'],
+            ),
         );
     }
 
     /**
-     * Created a UNIX based socket server.
+     * Create a UNIX based socket server.
      *
-     * @param string $socketFile
      * @param array<string, mixed> $options
-     * @return SocketServer
      * @throws ConnectionException
      */
     public static function bindUnix(
         string $socketFile,
-        array $options = []
+        array $options = [],
     ): SocketServer {
-        return static::bind(
+        return self::bind(
             $socketFile,
             null,
             \array_merge(
                 $options,
-                ['transport' => 'unix']
-            )
+                ['transport' => 'unix'],
+            ),
         );
     }
 }
