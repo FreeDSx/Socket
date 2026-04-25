@@ -13,6 +13,9 @@ namespace FreeDSx\Socket\Queue;
 use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Exception\PartialMessageException;
 use FreeDSx\Socket\Socket;
+use Generator;
+use function strlen;
+use function substr;
 
 /**
  * Used to retrieve Messages/PDUs from a socket.
@@ -46,43 +49,42 @@ abstract class MessageQueue
 
     /**
      * @param int|null $id
-     * @return \Generator
+     * @return Generator
      * @throws ConnectionException
      */
-    public function getMessages(?int $id = null)
+    public function getMessages(?int $id = null): Generator
     {
-        if (!$this->hasBuffer()) {
-            $this->addToAvailableBufferOrFail();
+        while (true) {
+            yield $this->getMessage($id);
         }
+    }
 
-        while ($this->hasBuffer()) {
-            try {
-                if ($this->hasAvailableBuffer()) {
-                    $this->addToConsumableBuffer();
-                } elseif (!$this->hasConsumableBuffer()) {
-                    $this->addToAvailableBufferOrFail();
-                }
-            } catch (PartialMessageException $exception) {
+    /**
+     * @throws ConnectionException
+     * @throws PartialMessageException
+     */
+    private function readOneMessage(): Message
+    {
+        while (true) {
+            if (!$this->hasConsumableBuffer() && !$this->hasAvailableBuffer()) {
                 $this->addToAvailableBufferOrFail();
             }
 
+            if ($this->hasAvailableBuffer()) {
+                $this->addToConsumableBuffer();
+            }
+
             try {
-                while ($this->hasConsumableBuffer()) {
-                    $message = $this->consume();
-                    if ($message !== null) {
-                        yield $this->constructMessage($message, $id);
-                    }
-                }
-            } catch (PartialMessageException $e) {
-                if ($this->hasAvailableBuffer()) {
-                    $this->addToConsumableBuffer();
-                } else {
-                    $this->addToAvailableBufferOrFail();
-                }
+                return $this->consume();
+            } catch (PartialMessageException $exception) {
+                $this->addToAvailableBufferOrFail();
             }
         }
     }
 
+    /**
+     * @throws ConnectionException
+     */
     protected function addToAvailableBufferOrFail(): void
     {
         $bytes = $this->socket->read();
@@ -98,7 +100,7 @@ abstract class MessageQueue
     {
         if ($this->hasAvailableBuffer()) {
             $buffer = $this->unwrap((string)$this->buffer);
-            $this->buffer = \substr((string)$this->buffer, $buffer->endsAt());
+            $this->buffer = substr((string)$this->buffer, $buffer->endsAt());
             $this->toConsume .= $buffer->bytes();
         }
     }
@@ -110,12 +112,12 @@ abstract class MessageQueue
 
     protected function hasAvailableBuffer(): bool
     {
-        return \strlen((string)$this->buffer) !== 0;
+        return strlen((string)$this->buffer) !== 0;
     }
 
     protected function hasConsumableBuffer(): bool
     {
-        return \strlen((string)$this->toConsume) !== 0;
+        return strlen((string)$this->toConsume) !== 0;
     }
 
     /**
@@ -129,11 +131,10 @@ abstract class MessageQueue
         try {
             $message = $this->decode($this->toConsume);
             $lastPos = (int)$message->getLastPosition();
-            $this->toConsume = \substr($this->toConsume, $lastPos);
-
-            if ($this->toConsume === '' && ($peek = $this->socket->read(false)) !== false) {
-                $this->buffer .= $peek;
-            }
+            $this->toConsume = substr(
+                $this->toConsume,
+                $lastPos
+            );
         } catch (PartialMessageException $exception) {
             # If we have available buffer, it might have what we need. Attempt to add it. Otherwise let it bubble...
             if ($this->hasAvailableBuffer()) {
@@ -157,7 +158,10 @@ abstract class MessageQueue
      */
     protected function unwrap($bytes) : Buffer
     {
-        return new Buffer($bytes, \strlen($bytes));
+        return new Buffer(
+            $bytes,
+            strlen($bytes)
+        );
     }
 
     /**
@@ -177,7 +181,10 @@ abstract class MessageQueue
      */
     public function getMessage(?int $id = null)
     {
-        return $this->getMessages($id)->current();
+        return $this->constructMessage(
+            $this->readOneMessage(),
+            $id
+        );
     }
 
     /**
@@ -187,8 +194,10 @@ abstract class MessageQueue
      * @param int|null $id
      * @return mixed
      */
-    protected function constructMessage(Message $message, ?int $id = null)
-    {
+    protected function constructMessage(
+        Message $message,
+        ?int $id = null
+    ) {
         return $message->getMessage();
     }
 }
