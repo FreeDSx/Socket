@@ -17,6 +17,7 @@ use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\SocketServer;
+use FreeDSx\Socket\SocketServerOptions;
 use FreeDSx\Socket\Transport;
 use PHPUnit\Framework\TestCase;
 
@@ -106,5 +107,31 @@ final class SocketServerTest extends TestCase
         $client->write('foo');
 
         self::assertSame('foo', $this->subject->receive());
+    }
+
+    public function test_it_should_apply_idle_timeout_to_accepted_client_read_timeout(): void
+    {
+        $this->subject = SocketServer::bindTcp(
+            '127.0.0.1',
+            33389,
+            (new SocketServerOptions())->setIdleTimeout(42),
+        );
+
+        $client = Socket::tcp(
+            '127.0.0.1',
+            (new SocketOptions())->setPort(33389),
+        );
+
+        try {
+            $accepted = $this->subject->accept(1.0);
+
+            self::assertNotNull($accepted);
+            self::assertSame(
+                42,
+                $accepted->getOptions()->getTimeoutRead()
+            );
+        } finally {
+            $client->close();
+        }
     }
 }
