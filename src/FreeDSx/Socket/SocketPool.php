@@ -14,45 +14,17 @@ declare(strict_types=1);
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use Throwable;
+use function implode;
+use function sprintf;
 
 /**
  * Given a selection of hosts, connect to one and return the Socket.
- *
- * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
 class SocketPool
 {
-    /**
-     * @var array<string, mixed>
-     */
-    protected array $options = [
-        'servers' => [],
-        'port' => 389,
-        'timeout_connect' => 1,
-    ];
-
-    /**
-     * @var list<string>
-     */
-    protected array $socketOpts = [
-        'use_ssl',
-        'ssl_validate_cert',
-        'ssl_allow_self_signed',
-        'ssl_ca_cert',
-        'ssl_cert',
-        'ssl_peer_name',
-        'timeout_connect',
-        'timeout_read',
-        'port',
-        'transport',
-    ];
-
-    /**
-     * @param array<string, mixed> $options
-     */
-    public function __construct(array $options)
+    public function __construct(protected SocketPoolOptions $options)
     {
-        $this->options = \array_merge($this->options, $options);
     }
 
     /**
@@ -60,18 +32,20 @@ class SocketPool
      */
     public function connect(string $hostname = ''): Socket
     {
-        $hosts = ($hostname !== '') ? [$hostname] : (array) $this->options['servers'];
+        $hosts = $hostname !== ''
+            ? [$hostname]
+            : $this->options->getServers();
 
         $lastEx = null;
         $socket = null;
         foreach ($hosts as $host) {
             try {
                 $socket = Socket::create(
-                    (string) $host,
-                    $this->getSocketOptions(),
+                    $host,
+                    $this->options->getSocket()
                 );
                 break;
-            } catch (\Exception $e) {
+            } catch (Throwable $e) {
                 $lastEx = $e;
             }
         }
@@ -84,21 +58,5 @@ class SocketPool
         }
 
         return $socket;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function getSocketOptions(): array
-    {
-        $opts = [];
-
-        foreach ($this->socketOpts as $name) {
-            if (isset($this->options[$name])) {
-                $opts[$name] = $this->options[$name];
-            }
-        }
-
-        return $opts;
     }
 }

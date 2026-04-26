@@ -13,7 +13,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\FreeDSx\Socket;
 
+use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\SocketPool;
+use FreeDSx\Socket\SocketPoolOptions;
+use FreeDSx\Socket\Transport;
 use PHPUnit\Framework\TestCase;
 
 final class SocketPoolTest extends TestCase
@@ -47,10 +50,11 @@ final class SocketPoolTest extends TestCase
         }
         $this->unixServer = $server;
 
-        $subject = new SocketPool([
-            'servers' => [$this->unixPath],
-            'transport' => 'unix',
-        ]);
+        $subject = new SocketPool(
+            (new SocketPoolOptions(
+                (new SocketOptions())->setTransport(Transport::Unix),
+            ))->setServers([$this->unixPath]),
+        );
 
         self::assertTrue($subject->connect()->isConnected());
     }

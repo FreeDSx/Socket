@@ -16,66 +16,31 @@ namespace FreeDSx\Socket;
 use FreeDSx\Socket\Exception\ConnectionException;
 use function array_search;
 use function array_values;
-use function in_array;
 use function is_resource;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function stream_socket_server;
 
 /**
- * TCP socket server to accept client connections.
- *
- * @author Chad Sikorra <Chad.Sikorra@gmail.com>
+ * TCP/UDP/UNIX socket server to accept client connections.
  */
 class SocketServer extends Socket
 {
-    /**
-     * Supported transport types.
-     */
-    public const TRANSPORTS = [
-        'tcp',
-        'udp',
-        'unix',
-    ];
-
-    /**
-     * @var array<string, mixed>
-     */
-    protected array $serverOpts = [
-        'use_ssl' => false,
-        'ssl_cert' => null,
-        'ssl_cert_key' => null,
-        'ssl_cert_passphrase' => null,
-        'ssl_ciphers' => 'DEFAULT',
-        'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_SERVER | STREAM_CRYPTO_METHOD_TLSv1_1_SERVER | STREAM_CRYPTO_METHOD_TLS_SERVER,
-        'ssl_validate_cert' => false,
-        'idle_timeout' => 600,
-    ];
-
     /**
      * @var list<Socket>
      */
     protected array $clients = [];
 
-    /**
-     * @param array<string, mixed> $options
-     */
-    public function __construct(array $options = [])
+    public function __construct(?SocketServerOptions $options = null)
     {
-        parent::__construct(
-            null,
-            \array_merge(
-                $this->serverOpts,
-                $options,
-            ),
-        );
-        if (!in_array($this->options['transport'], self::TRANSPORTS, true)) {
-            throw new \RuntimeException(sprintf(
-                'The transport "%s" is not valid. It must be one of: %s',
-                $this->options['transport'],
-                implode(',', self::TRANSPORTS),
-            ));
-        }
+        parent::__construct(null, $options ?? new SocketServerOptions());
+    }
+
+    public function getOptions(): SocketServerOptions
+    {
+        \assert($this->options instanceof SocketServerOptions);
+
+        return $this->options;
     }
 
     /**
@@ -87,22 +52,23 @@ class SocketServer extends Socket
         string $ip,
         ?int $port,
     ): static {
+        $transport = $this->options->getTransport();
+
         $flags = STREAM_SERVER_BIND;
-        if ($this->options['transport'] !== 'udp') {
+        if ($transport !== Transport::Udp) {
             $flags |= STREAM_SERVER_LISTEN;
         }
 
-        $transport = $this->options['transport'];
-        if ($transport === 'tcp' && $this->options['use_ssl'] === true) {
-            $transport = 'ssl';
-        }
+        $scheme = $transport === Transport::Tcp && $this->options->isUseSsl()
+            ? 'ssl'
+            : $transport->value;
 
-        if ($transport !== 'unix' && $port === null) {
+        if ($transport !== Transport::Unix && $port === null) {
             throw new ConnectionException('The port must be set if not using a unix based socket.');
         }
 
-        $uri = $transport . '://' . $ip;
-        if ($port !== null && $transport !== 'unix') {
+        $uri = $scheme . '://' . $ip;
+        if ($port !== null && $transport !== Transport::Unix) {
             $uri .= ':' . $port;
         }
 
@@ -121,7 +87,7 @@ class SocketServer extends Socket
         if ($socket === false) {
             throw new ConnectionException(sprintf(
                 'Unable to open %s socket (%s): %s',
-                \strtoupper((string) $this->options['transport']),
+                \strtoupper($this->options->getTransport()->value),
                 $this->errorNumber,
                 $this->errorMessage,
             ));
@@ -142,12 +108,21 @@ class SocketServer extends Socket
             return null;
         }
 
-        $client = new Socket($accepted, \array_merge($this->options, [
-            'timeout_read' => $this->options['idle_timeout'],
-        ]));
+        $client = new Socket(
+            $accepted,
+            self::optionsForAcceptedClient($this->getOptions()),
+        );
         $this->clients[] = $client;
 
         return $client;
+    }
+
+    private static function optionsForAcceptedClient(SocketServerOptions $server): SocketOptionsInterface
+    {
+        $clone = clone $server;
+        $clone->setTimeoutRead($server->getIdleTimeout());
+
+        return $clone;
     }
 
     /**
@@ -189,79 +164,72 @@ class SocketServer extends Socket
     /**
      * Create the socket server. Binds and listens on a specific port.
      *
-     * @param array<string, mixed> $options
      * @throws ConnectionException
      */
     public static function bind(
         string $ip,
         ?int $port,
-        array $options = [],
+        ?SocketServerOptions $options = null,
     ): SocketServer {
         return (new self($options))->listen(
             $ip,
-            $port,
+            $port
         );
     }
 
     /**
      * Create a TCP based socket server.
      *
-     * @param array<string, mixed> $options
      * @throws ConnectionException
      */
     public static function bindTcp(
         string $ip,
         int $port,
-        array $options = [],
+        SocketServerOptions $options = new SocketServerOptions(),
     ): SocketServer {
+        $options->setTransport(Transport::Tcp);
+
         return self::bind(
             $ip,
             $port,
-            \array_merge(
-                $options,
-                ['transport' => 'tcp'],
-            ),
+            $options,
         );
     }
 
     /**
      * Create a UDP based socket server.
      *
-     * @param array<string, mixed> $options
      * @throws ConnectionException
      */
     public static function bindUdp(
         string $ip,
         int $port,
-        array $options = [],
+        SocketServerOptions $options = new SocketServerOptions(),
     ): SocketServer {
+        $options->setTransport(Transport::Udp);
+
         return self::bind(
             $ip,
             $port,
-            \array_merge(
-                $options,
-                ['transport' => 'udp'],
-            ),
+            $options,
         );
     }
 
     /**
      * Create a UNIX based socket server.
      *
-     * @param array<string, mixed> $options
      * @throws ConnectionException
      */
     public static function bindUnix(
         string $socketFile,
-        array $options = [],
+        SocketServerOptions $options = new SocketServerOptions(),
     ): SocketServer {
+        $options->setTransport(Transport::Unix);
+
         return self::bind(
             $socketFile,
             null,
-            \array_merge(
-                $options,
-                ['transport' => 'unix'],
-            ),
+            $options,
         );
     }
 }

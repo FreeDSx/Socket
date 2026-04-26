@@ -14,6 +14,8 @@ declare(strict_types=1);
 namespace Tests\Unit\FreeDSx\Socket;
 
 use FreeDSx\Socket\Socket;
+use FreeDSx\Socket\SocketOptions;
+use FreeDSx\Socket\Transport;
 use PHPUnit\Framework\TestCase;
 
 final class SocketTest extends TestCase
@@ -53,32 +55,36 @@ final class SocketTest extends TestCase
         }
     }
 
-    public function test_it_should_get_the_options_for_the_socket(): void
+    public function test_it_should_get_the_default_options_for_the_socket(): void
     {
         $subject = new Socket();
+        $options = $subject->getOptions();
 
+        self::assertSame(Transport::Tcp, $options->getTransport());
+        self::assertSame(389, $options->getPort());
+        self::assertFalse($options->isUseSsl());
         self::assertSame(
-            [
-                'transport' => 'tcp',
-                'port' => 389,
-                'use_ssl' => false,
-                'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
-                'ssl_ciphers' => 'DEFAULT',
-                'ssl_validate_cert' => true,
-                'ssl_allow_self_signed' => null,
-                'ssl_ca_cert' => null,
-                'ssl_peer_name' => null,
-                'timeout_connect' => 3,
-                'timeout_read' => 15,
-                'buffer_size' => 8192,
-            ],
-            $subject->getOptions(),
+            STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT
+            | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT
+            | STREAM_CRYPTO_METHOD_TLS_CLIENT,
+            $options->getSslCryptoMethod(),
         );
+        self::assertSame('DEFAULT', $options->getSslCiphers());
+        self::assertTrue($options->isSslValidateCert());
+        self::assertNull($options->getSslAllowSelfSigned());
+        self::assertNull($options->getSslCaCert());
+        self::assertNull($options->getSslPeerName());
+        self::assertSame(3, $options->getTimeoutConnect());
+        self::assertSame(15, $options->getTimeoutRead());
+        self::assertSame(8192, $options->getBufferSize());
     }
 
     public function test_it_should_create_a_socket(): void
     {
-        $subject = Socket::create('www.google.com', ['port' => 80]);
+        $subject = Socket::create(
+            'www.google.com',
+            (new SocketOptions())->setPort(80),
+        );
 
         self::assertTrue($subject->isConnected());
     }
@@ -89,36 +95,45 @@ final class SocketTest extends TestCase
 
         $subject = Socket::unix($path);
 
-        self::assertSame('unix', $subject->getOptions()['transport']);
+        self::assertSame(Transport::Unix, $subject->getOptions()->getTransport());
     }
 
     public function test_it_should_create_a_tcp_based_socket(): void
     {
-        self::assertSame(
-            'tcp',
-            Socket::tcp('www.google.com', ['port' => 80])->getOptions()['transport'],
+        $subject = Socket::tcp(
+            'www.google.com',
+            (new SocketOptions())->setPort(80),
         );
+
+        self::assertSame(Transport::Tcp, $subject->getOptions()->getTransport());
     }
 
     public function test_it_should_create_a_udp_based_socket(): void
     {
-        self::assertSame(
-            'udp',
-            Socket::udp('8.8.8.8', ['port' => 53])->getOptions()['transport'],
+        $subject = Socket::udp(
+            '8.8.8.8',
+            (new SocketOptions())->setPort(53),
         );
+
+        self::assertSame(Transport::Udp, $subject->getOptions()->getTransport());
     }
 
     public function test_it_should_have_a_default_buffer_size_of_65507_for_UDP(): void
     {
-        self::assertSame(
-            65507,
-            Socket::udp('8.8.8.8', ['port' => 53])->getOptions()['buffer_size'],
+        $subject = Socket::udp(
+            '8.8.8.8',
+            (new SocketOptions())->setPort(53),
         );
+
+        self::assertSame(65507, $subject->getOptions()->getBufferSize());
     }
 
     public function test_it_should_tell_whether_or_not_it_is_connected_for_tcp(): void
     {
-        $subject = Socket::tcp('www.google.com', ['port' => 80]);
+        $subject = Socket::tcp(
+            'www.google.com',
+            (new SocketOptions())->setPort(80),
+        );
 
         self::assertTrue($subject->isConnected());
         $subject->close();
@@ -127,7 +142,10 @@ final class SocketTest extends TestCase
 
     public function test_it_should_tell_whether_or_not_it_is_connected_for_udp(): void
     {
-        $subject = Socket::udp('www.google.com', ['port' => 53]);
+        $subject = Socket::udp(
+            'www.google.com',
+            (new SocketOptions())->setPort(53),
+        );
 
         self::assertTrue($subject->isConnected());
         $subject->close();
@@ -149,7 +167,10 @@ final class SocketTest extends TestCase
         [$local, $remote] = $this->createSocketPair();
         fwrite($remote, '0123456789');
 
-        $subject = new Socket($local, ['buffer_size' => 4]);
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setBufferSize(4),
+        );
 
         self::assertSame('0123', $subject->read());
         self::assertSame('4567', $subject->read());
