@@ -61,16 +61,17 @@ class Socket
 
     public function read(bool $block = true): string|false
     {
-        stream_set_blocking($this->socket, $block);
+        $stream = $this->getStream();
+        stream_set_blocking($stream, $block);
 
         $data = fread(
-            $this->socket,
+            $stream,
             $this->options->getBufferSize(),
         );
 
         if (!$block) {
             stream_set_blocking(
-                $this->socket,
+                $stream,
                 true,
             );
         }
@@ -82,14 +83,20 @@ class Socket
 
     public function write(string $data): static
     {
-        @fwrite($this->socket, $data);
+        @fwrite(
+            $this->getStream(),
+            $data,
+        );
 
         return $this;
     }
 
     public function block(bool $block): static
     {
-        stream_set_blocking($this->socket, $block);
+        stream_set_blocking(
+            $this->getStream(),
+            $block
+        );
 
         return $this;
     }
@@ -134,13 +141,21 @@ class Socket
      */
     public function encrypt(bool $encrypt): static
     {
-        stream_set_blocking($this->socket, true);
+        $stream = $this->getStream();
+
+        stream_set_blocking(
+            $stream,
+            true,
+        );
         $result = stream_socket_enable_crypto(
-            $this->socket,
+            $stream,
             $encrypt,
             $this->options->getSslCryptoMethod(),
         );
-        stream_set_blocking($this->socket, false);
+        stream_set_blocking(
+            $stream,
+            false,
+        );
 
         if ($result !== true) {
             throw new ConnectionException(sprintf(
@@ -179,8 +194,8 @@ class Socket
             STREAM_CLIENT_CONNECT,
             $this->createSocketContext(),
         );
-        $this->errorNumber = $errorNumber;
-        $this->errorMessage = $errorMessage;
+        $this->errorNumber = $errorNumber ?? 0;
+        $this->errorMessage = $errorMessage ?? '';
 
         if ($socket === false) {
             throw new ConnectionException(sprintf(
@@ -208,9 +223,12 @@ class Socket
      */
     public static function create(
         string $host,
-        ?SocketOptions $options = null,
+        SocketOptions $options = new SocketOptions(),
     ): Socket {
-        return (new self(null, $options))->connect($host);
+        return (new self(
+            null,
+            $options,
+        ))->connect($host);
     }
 
     /**
@@ -283,8 +301,21 @@ class Socket
     protected function setStreamOpts(): void
     {
         stream_set_timeout(
-            $this->socket,
+            $this->getStream(),
             $this->options->getTimeoutRead(),
         );
+    }
+
+    /**
+     * @return resource
+     * @throws ConnectionException
+     */
+    protected function getStream()
+    {
+        if ($this->socket === null) {
+            throw new ConnectionException('The socket is not connected.');
+        }
+
+        return $this->socket;
     }
 }

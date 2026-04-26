@@ -14,9 +14,10 @@ declare(strict_types=1);
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
-use function array_search;
+use function array_filter;
 use function array_values;
 use function is_resource;
+use function is_string;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function stream_socket_server;
@@ -81,8 +82,8 @@ class SocketServer extends Socket
             $flags,
             $this->createSocketContext(),
         );
-        $this->errorNumber = $errorNumber;
-        $this->errorMessage = $errorMessage;
+        $this->errorNumber = $errorNumber ?? 0;
+        $this->errorMessage = $errorMessage ?? '';
 
         if ($socket === false) {
             throw new ConnectionException(sprintf(
@@ -128,20 +129,27 @@ class SocketServer extends Socket
     /**
      * Receive data from a UDP based socket. Optionally get the IP address the data was received from.
      *
+     * @param-out string|null $ipAddress
      * @todo Buffer size should be adjustable. Max UDP packet size is 65507. Currently this avoids possible truncation.
      */
     public function receive(?string &$ipAddress = null): ?string
     {
         $this->block(true);
 
+        $received = null;
         $data = stream_socket_recvfrom(
-            $this->socket,
+            $this->getStream(),
             65507,
             0,
-            $ipAddress,
+            $received,
         );
+        $ipAddress = is_string($received)
+            ? $received
+            : null;
 
-        return $data === false ? null : $data;
+        return $data === false
+            ? null
+            : $data;
     }
 
     /**
@@ -154,11 +162,10 @@ class SocketServer extends Socket
 
     public function removeClient(Socket $socket): void
     {
-        $index = array_search($socket, $this->clients, true);
-        if ($index !== false) {
-            unset($this->clients[$index]);
-            $this->clients = array_values($this->clients);
-        }
+        $this->clients = array_values(array_filter(
+            $this->clients,
+            fn (Socket $client): bool => $client !== $socket,
+        ));
     }
 
     /**

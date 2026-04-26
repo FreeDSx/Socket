@@ -15,9 +15,13 @@ namespace FreeDSx\Socket\Queue;
 
 use FreeDSx\Asn1\Encoder\EncoderInterface;
 use FreeDSx\Asn1\Exception\PartialPduException;
+use FreeDSx\Asn1\Type\AbstractType;
 use FreeDSx\Socket\Exception\PartialMessageException;
 use FreeDSx\Socket\PduInterface;
 use FreeDSx\Socket\Socket;
+use RuntimeException;
+use UnexpectedValueException;
+use function get_debug_type;
 
 /**
  * Represents an ASN.1 based message queue using the FreeDSx ASN.1 library.
@@ -35,7 +39,7 @@ class Asn1MessageQueue extends MessageQueue
         protected ?string $pduClass = null,
     ) {
         if ($pduClass !== null && !\is_subclass_of($pduClass, PduInterface::class)) {
-            throw new \RuntimeException(sprintf(
+            throw new RuntimeException(sprintf(
                 'The class "%s" must implement "%s", but it does not.',
                 $pduClass,
                 PduInterface::class,
@@ -61,13 +65,17 @@ class Asn1MessageQueue extends MessageQueue
         ?int $id = null,
     ): mixed {
         if ($this->pduClass === null) {
-            throw new \RuntimeException('You must either define a PDU class or override getPdu().');
+            throw new RuntimeException('You must either define a PDU class or override getPdu().');
         }
-        $callable = [$this->pduClass, 'fromAsn1'];
-        if (!\is_callable($callable)) {
-            throw new \RuntimeException(sprintf('The class %s is not callable.', $this->pduClass));
+        $asn1 = $message->getMessage();
+        if (!$asn1 instanceof AbstractType) {
+            throw new UnexpectedValueException(sprintf(
+                'Expected an instance of %s, got %s.',
+                AbstractType::class,
+                get_debug_type($asn1),
+            ));
         }
 
-        return \call_user_func($callable, $message->getMessage());
+        return ($this->pduClass)::fromAsn1($asn1);
     }
 }

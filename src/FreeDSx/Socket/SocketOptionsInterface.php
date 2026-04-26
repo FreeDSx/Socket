@@ -46,6 +46,9 @@ interface SocketOptionsInterface
 
     public function getTimeoutRead(): int;
 
+    /**
+     * @return positive-int
+     */
     public function getBufferSize(): int;
 
     /**
