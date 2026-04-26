@@ -1,5 +1,5 @@
 parameters:
-    level: 6
+    level: max
     paths:
         - %currentWorkingDirectory%/src
     phpVersion: 80200

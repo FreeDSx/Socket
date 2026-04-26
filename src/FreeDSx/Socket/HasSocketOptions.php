@@ -51,6 +51,9 @@ trait HasSocketOptions
 
     private int $timeoutRead = 15;
 
+    /**
+     * @var positive-int
+     */
     private int $bufferSize = 8192;
 
     public function setTransport(Transport $transport): self
@@ -231,6 +234,9 @@ trait HasSocketOptions
         return $this;
     }
 
+    /**
+     * @return positive-int
+     */
     public function getBufferSize(): int
     {
         return $this->bufferSize;
