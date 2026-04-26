@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -24,32 +27,16 @@ use function substr;
  */
 abstract class MessageQueue
 {
-    /**
-     * @var Socket
-     */
-    protected $socket;
+    protected string $buffer = '';
 
-    /**
-     * @var false|string
-     */
-    protected $buffer = false;
+    protected string $toConsume = '';
 
-    /**
-     * @var string|null
-     */
-    protected $toConsume = null;
-
-    /**
-     * @param Socket $socket
-     */
-    public function __construct(Socket $socket)
+    public function __construct(protected Socket $socket)
     {
-        $this->socket = $socket;
     }
 
     /**
-     * @param int|null $id
-     * @return Generator
+     * @return Generator<int, mixed>
      * @throws ConnectionException
      */
     public function getMessages(?int $id = null): Generator
@@ -57,6 +44,17 @@ abstract class MessageQueue
         while (true) {
             yield $this->getMessage($id);
         }
+    }
+
+    /**
+     * @throws ConnectionException
+     */
+    public function getMessage(?int $id = null): mixed
+    {
+        return $this->constructMessage(
+            $this->readOneMessage(),
+            $id,
+        );
     }
 
     /**
@@ -76,7 +74,7 @@ abstract class MessageQueue
 
             try {
                 return $this->consume();
-            } catch (PartialMessageException $exception) {
+            } catch (PartialMessageException) {
                 $this->addToAvailableBufferOrFail();
             }
         }
@@ -99,8 +97,8 @@ abstract class MessageQueue
     protected function addToConsumableBuffer(): void
     {
         if ($this->hasAvailableBuffer()) {
-            $buffer = $this->unwrap((string)$this->buffer);
-            $this->buffer = substr((string)$this->buffer, $buffer->endsAt());
+            $buffer = $this->unwrap($this->buffer);
+            $this->buffer = substr($this->buffer, $buffer->endsAt());
             $this->toConsume .= $buffer->bytes();
         }
     }
@@ -112,28 +110,27 @@ abstract class MessageQueue
 
     protected function hasAvailableBuffer(): bool
     {
-        return strlen((string)$this->buffer) !== 0;
+        return strlen($this->buffer) !== 0;
     }
 
     protected function hasConsumableBuffer(): bool
     {
-        return strlen((string)$this->toConsume) !== 0;
+        return strlen($this->toConsume) !== 0;
     }
 
     /**
-     * @return Message|null
      * @throws PartialMessageException
      */
-    protected function consume(): ?Message
+    protected function consume(): Message
     {
         $message = null;
 
         try {
             $message = $this->decode($this->toConsume);
-            $lastPos = (int)$message->getLastPosition();
+            $lastPos = (int) $message->getLastPosition();
             $this->toConsume = substr(
                 $this->toConsume,
-                $lastPos
+                $lastPos,
             );
         } catch (PartialMessageException $exception) {
             # If we have available buffer, it might have what we need. Attempt to add it. Otherwise let it bubble...
@@ -152,15 +149,11 @@ abstract class MessageQueue
         return $message;
     }
 
-    /**
-     * @param string $bytes
-     * @return Buffer
-     */
-    protected function unwrap($bytes) : Buffer
+    protected function unwrap(string $bytes): Buffer
     {
         return new Buffer(
             $bytes,
-            strlen($bytes)
+            strlen($bytes),
         );
     }
 
@@ -168,36 +161,17 @@ abstract class MessageQueue
      * Decode the bytes to an object. If you have a partial object, throw the PartialMessageException and the queue
      * will attempt to append more data to the buffer.
      *
-     * @param string $bytes
-     * @return Message
      * @throws PartialMessageException
      */
-    protected abstract function decode($bytes) : Message;
-
-    /**
-     * @param int|null $id
-     * @return mixed
-     * @throws ConnectionException
-     */
-    public function getMessage(?int $id = null)
-    {
-        return $this->constructMessage(
-            $this->readOneMessage(),
-            $id
-        );
-    }
+    abstract protected function decode(string $bytes): Message;
 
     /**
      * Retrieve the message object from the message. Allow for special construction / validation if needed.
-     *
-     * @param Message $message
-     * @param int|null $id
-     * @return mixed
      */
     protected function constructMessage(
         Message $message,
-        ?int $id = null
-    ) {
+        ?int $id = null,
+    ): mixed {
         return $message->getMessage();
     }
 }

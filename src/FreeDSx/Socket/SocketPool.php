@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -11,53 +14,27 @@
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use Throwable;
+use function implode;
+use function sprintf;
 
 /**
  * Given a selection of hosts, connect to one and return the Socket.
- *
- * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
 class SocketPool
 {
-    /**
-     * @var array<string, mixed>
-     */
-    protected $options = [
-        'servers' => [],
-        'port' => 389,
-        'timeout_connect' => 1,
-    ];
-
-    /**
-     * @var list<string>
-     */
-    protected $socketOpts = [
-        'use_ssl',
-        'ssl_validate_cert',
-        'ssl_allow_self_signed',
-        'ssl_ca_cert',
-        'ssl_cert',
-        'ssl_peer_name',
-        'timeout_connect',
-        'timeout_read',
-        'port',
-        'transport',
-    ];
-
-    /**
-     * @param array<string, mixed> $options
-     */
-    public function __construct(array $options)
+    public function __construct(protected SocketPoolOptions $options)
     {
-        $this->options = \array_merge($this->options, $options);
     }
 
     /**
      * @throws ConnectionException
      */
-    public function connect(string $hostname = '') : Socket
+    public function connect(string $hostname = ''): Socket
     {
-        $hosts = ($hostname !== '') ? [$hostname] : (array) $this->options['servers'];
+        $hosts = $hostname !== ''
+            ? [$hostname]
+            : $this->options->getServers();
 
         $lastEx = null;
         $socket = null;
@@ -65,10 +42,10 @@ class SocketPool
             try {
                 $socket = Socket::create(
                     $host,
-                    $this->getSocketOptions()
+                    $this->options->getSocket()
                 );
                 break;
-            } catch (\Exception $e) {
+            } catch (Throwable $e) {
                 $lastEx = $e;
             }
         }
@@ -76,26 +53,10 @@ class SocketPool
         if ($socket === null) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to server(s): %s',
-                implode(',', $hosts)
+                implode(',', $hosts),
             ), 0, $lastEx);
         }
 
         return $socket;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    protected function getSocketOptions() : array
-    {
-        $opts = [];
-
-        foreach ($this->socketOpts as $name) {
-            if (isset($this->options[$name])) {
-                $opts[$name] = $this->options[$name];
-            }
-        }
-
-        return $opts;
     }
 }

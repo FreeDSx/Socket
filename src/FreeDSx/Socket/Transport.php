@@ -13,16 +13,9 @@ declare(strict_types=1);
 
 namespace FreeDSx\Socket;
 
-use FreeDSx\Asn1\Type\AbstractType;
-
-/**
- * Represents an ASN.1 PDU that can be retrieved from a message queue.
- *
- * @author Chad Sikorra <Chad.Sikorra@gmail.com>
- */
-interface PduInterface
+enum Transport: string
 {
-    public function toAsn1(): AbstractType;
-
-    public static function fromAsn1(AbstractType $asn1): mixed;
+    case Tcp = 'tcp';
+    case Udp = 'udp';
+    case Unix = 'unix';
 }

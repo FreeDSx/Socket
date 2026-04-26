@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -10,11 +13,13 @@
 
 namespace FreeDSx\Socket\Exception;
 
+use Exception;
+
 /**
  * Represents a connection issue with a socket.
  *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
-class ConnectionException extends \Exception
+final class ConnectionException extends Exception
 {
 }

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -24,38 +27,24 @@ use FreeDSx\Socket\Socket;
 class Asn1MessageQueue extends MessageQueue
 {
     /**
-     * @var null|string
+     * @param class-string<PduInterface>|null $pduClass
      */
-    protected $pduClass;
-
-    /**
-     * @var EncoderInterface
-     */
-    protected $encoder;
-
-    /**
-     * @param Socket $socket
-     * @param EncoderInterface $encoder
-     * @param null|string $pduClass
-     */
-    public function __construct(Socket $socket, EncoderInterface $encoder, ?string $pduClass = null)
-    {
+    public function __construct(
+        Socket $socket,
+        protected EncoderInterface $encoder,
+        protected ?string $pduClass = null,
+    ) {
         if ($pduClass !== null && !\is_subclass_of($pduClass, PduInterface::class)) {
             throw new \RuntimeException(sprintf(
                 'The class "%s" must implement "%s", but it does not.',
                 $pduClass,
-                PduInterface::class
+                PduInterface::class,
             ));
         }
-        $this->encoder = $encoder;
-        $this->pduClass = $pduClass;
         parent::__construct($socket);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    protected function decode($bytes): Message
+    protected function decode(string $bytes): Message
     {
         try {
             $asn1 = $this->encoder->decode($bytes);
@@ -67,11 +56,10 @@ class Asn1MessageQueue extends MessageQueue
         return $message;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    protected function constructMessage(Message $message, ?int $id = null)
-    {
+    protected function constructMessage(
+        Message $message,
+        ?int $id = null,
+    ): mixed {
         if ($this->pduClass === null) {
             throw new \RuntimeException('You must either define a PDU class or override getPdu().');
         }

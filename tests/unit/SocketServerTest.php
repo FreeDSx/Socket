@@ -15,7 +15,10 @@ namespace Tests\Unit\FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Socket;
+use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\SocketServer;
+use FreeDSx\Socket\SocketServerOptions;
+use FreeDSx\Socket\Transport;
 use PHPUnit\Framework\TestCase;
 
 final class SocketServerTest extends TestCase
@@ -41,7 +44,7 @@ final class SocketServerTest extends TestCase
 
     public function test_it_should_throw_a_connection_exception_if_it_cannot_listen_on_the_ip_and_port(): void
     {
-        $this->subject = new SocketServer([]);
+        $this->subject = new SocketServer();
 
         $this->expectException(ConnectionException::class);
 
@@ -60,8 +63,8 @@ final class SocketServerTest extends TestCase
         $this->subject = SocketServer::bindTcp('0.0.0.0', 33389);
 
         self::assertSame(
-            'tcp',
-            $this->subject->getOptions()['transport']
+            Transport::Tcp,
+            $this->subject->getOptions()->getTransport(),
         );
         self::assertTrue($this->subject->isConnected());
         $this->subject->close();
@@ -72,7 +75,10 @@ final class SocketServerTest extends TestCase
     {
         $this->subject = SocketServer::bindUdp('0.0.0.0', 33389);
 
-        self::assertSame('udp', $this->subject->getOptions()['transport']);
+        self::assertSame(
+            Transport::Udp,
+            $this->subject->getOptions()->getTransport(),
+        );
     }
 
     public function test_it_should_construct_a_unix_based_socket_server(): void
@@ -82,8 +88,8 @@ final class SocketServerTest extends TestCase
         $this->subject = SocketServer::bindUnix($this->testSocket);
 
         self::assertSame(
-            'unix',
-            $this->subject->getOptions()['transport']
+            Transport::Unix,
+            $this->subject->getOptions()->getTransport(),
         );
         self::assertTrue($this->subject->isConnected());
         $this->subject->close();
@@ -94,12 +100,38 @@ final class SocketServerTest extends TestCase
     {
         $this->subject = SocketServer::bindUdp('0.0.0.0', 33389);
 
-        $client = Socket::udp('127.0.0.1', ['port' => 33389]);
+        $client = Socket::udp(
+            '127.0.0.1',
+            (new SocketOptions())->setPort(33389),
+        );
         $client->write('foo');
 
-        self::assertSame(
-            'foo',
-            $this->subject->receive()
+        self::assertSame('foo', $this->subject->receive());
+    }
+
+    public function test_it_should_apply_idle_timeout_to_accepted_client_read_timeout(): void
+    {
+        $this->subject = SocketServer::bindTcp(
+            '127.0.0.1',
+            33389,
+            (new SocketServerOptions())->setIdleTimeout(42),
         );
+
+        $client = Socket::tcp(
+            '127.0.0.1',
+            (new SocketOptions())->setPort(33389),
+        );
+
+        try {
+            $accepted = $this->subject->accept(1.0);
+
+            self::assertNotNull($accepted);
+            self::assertSame(
+                42,
+                $accepted->getOptions()->getTimeoutRead()
+            );
+        } finally {
+            $client->close();
+        }
     }
 }

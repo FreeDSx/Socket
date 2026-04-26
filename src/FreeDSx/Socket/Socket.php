@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * This file is part of the FreeDSx Socket package.
  *
@@ -11,13 +14,14 @@
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
-use function array_merge;
 use function fread;
-use function in_array;
+use function fwrite;
+use function stream_context_create;
 use function stream_set_blocking;
 use function stream_set_timeout;
 use function stream_socket_client;
 use function stream_socket_enable_crypto;
+use function stream_socket_shutdown;
 
 /**
  * Represents a generic socket.
@@ -26,19 +30,7 @@ use function stream_socket_enable_crypto;
  */
 class Socket
 {
-    /**
-     * Supported transport types.
-     */
-    public const TRANSPORTS = [
-        'tcp',
-        'udp',
-        'unix',
-    ];
-
-    /**
-     * @var bool
-     */
-    protected $isEncrypted = false;
+    protected bool $isEncrypted = false;
 
     /**
      * @var resource|null
@@ -50,95 +42,36 @@ class Socket
      */
     protected $context;
 
-    /**
-     * @var string
-     */
-    protected $errorMessage;
+    protected string $errorMessage = '';
 
-    /**
-     * @var int
-     */
-    protected $errorNumber;
-
-    /**
-     * @var array<string, string>
-     */
-    protected $sslOptsMap = [
-        'ssl_allow_self_signed' => 'allow_self_signed',
-        'ssl_ca_cert' => 'cafile',
-        'ssl_crypto_method' => 'crypto_method',
-        'ssl_ciphers' => 'ciphers',
-        'ssl_peer_name' => 'peer_name',
-        'ssl_cert' => 'local_cert',
-        'ssl_cert_key' => 'local_pk',
-        'ssl_cert_passphrase' => 'passphrase',
-    ];
-
-    /**
-     * @var array<string, bool>
-     */
-    protected $sslOpts = [
-        'allow_self_signed' => false,
-        'verify_peer' => true,
-        'verify_peer_name' => true,
-        'capture_peer_cert' => true,
-        'capture_peer_cert_chain' => true,
-    ];
-
-    /**
-     * @var array<string, mixed>
-     */
-    protected $options = [
-        'transport' => 'tcp',
-        'port' => 389,
-        'use_ssl' => false,
-        'ssl_crypto_method' => STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT | STREAM_CRYPTO_METHOD_TLS_CLIENT,
-        'ssl_ciphers' => 'DEFAULT',
-        'ssl_validate_cert' => true,
-        'ssl_allow_self_signed' => null,
-        'ssl_ca_cert' => null,
-        'ssl_peer_name' => null,
-        'timeout_connect' => 3,
-        'timeout_read' => 15,
-        'buffer_size' => 8192,
-    ];
+    protected int $errorNumber = 0;
 
     /**
      * @param resource|null $resource
-     * @param array<string, mixed> $options
      */
-    public function __construct($resource = null, array $options = [])
-    {
+    public function __construct(
+        $resource = null,
+        protected readonly SocketOptionsInterface $options = new SocketOptions(),
+    ) {
         $this->socket = $resource;
-        $this->options = array_merge($this->options, $options);
-        if (!in_array($this->options['transport'], self::TRANSPORTS, true)) {
-            throw new \RuntimeException(sprintf(
-                'The transport "%s" is not valid. It must be one of: %s',
-                $this->options['transport'],
-                implode(',', self::TRANSPORTS)
-            ));
-        }
         if ($this->socket !== null) {
             $this->setStreamOpts();
         }
     }
 
-    /**
-     * @param bool $block
-     * @return string|false
-     */
-    public function read(bool $block = true)
+    public function read(bool $block = true): string|false
     {
         stream_set_blocking($this->socket, $block);
+
         $data = fread(
             $this->socket,
-            $this->options['buffer_size']
+            $this->options->getBufferSize(),
         );
 
         if (!$block) {
             stream_set_blocking(
                 $this->socket,
-                true
+                true,
             );
         }
 
@@ -147,32 +80,21 @@ class Socket
             : $data;
     }
 
-    /**
-     * @param string $data
-     * @return $this
-     */
-    public function write(string $data)
+    public function write(string $data): static
     {
-        @\fwrite($this->socket, $data);
+        @fwrite($this->socket, $data);
 
         return $this;
     }
 
-    /**
-     * @param bool $block
-     * @return $this
-     */
-    public function block(bool $block)
+    public function block(bool $block): static
     {
         stream_set_blocking($this->socket, $block);
 
         return $this;
     }
 
-    /**
-     * @return bool
-     */
-    public function isConnected() : bool
+    public function isConnected(): bool
     {
         if ($this->socket === null) {
             return false;
@@ -180,7 +102,7 @@ class Socket
 
         // Slight optimization. The feof() method should be more accurate and unix socket should be less likely.
         // In PHP 8.2 feof is not accurate for checking a UNIX socket.
-        if ($this->options['transport'] !== 'unix') {
+        if ($this->options->getTransport() !== Transport::Unix) {
             return !@\feof($this->socket);
         }
 
@@ -188,21 +110,15 @@ class Socket
         return \is_resource($this->socket);
     }
 
-    /**
-     * @return bool
-     */
-    public function isEncrypted() : bool
+    public function isEncrypted(): bool
     {
         return $this->isEncrypted;
     }
 
-    /**
-     * @return $this
-     */
-    public function close()
+    public function close(): static
     {
         if ($this->socket !== null) {
-            \stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
         }
         $this->socket = null;
         $this->isEncrypted = false;
@@ -214,21 +130,23 @@ class Socket
     /**
      * Enable/Disable encryption on the TCP connection stream.
      *
-     * @param bool $encrypt
-     * @return $this
      * @throws ConnectionException
      */
-    public function encrypt(bool $encrypt)
+    public function encrypt(bool $encrypt): static
     {
         stream_set_blocking($this->socket, true);
-        $result = stream_socket_enable_crypto($this->socket, $encrypt, $this->options['ssl_crypto_method']);
+        $result = stream_socket_enable_crypto(
+            $this->socket,
+            $encrypt,
+            $this->options->getSslCryptoMethod(),
+        );
         stream_set_blocking($this->socket, false);
 
-        if ((bool) $result == false) {
+        if ($result !== true) {
             throw new ConnectionException(sprintf(
                 'Unable to %s encryption on TCP connection. %s',
                 $encrypt ? 'enable' : 'disable',
-                $this->errorMessage
+                $this->errorMessage,
             ));
         }
         $this->isEncrypted = $encrypt;
@@ -237,51 +155,48 @@ class Socket
     }
 
     /**
-     * @param string $host
-     * @return $this
      * @throws ConnectionException
      */
-    public function connect(string $host)
+    public function connect(string $host): static
     {
-        $transport = $this->options['transport'];
-        if ($transport === 'tcp' && (bool) $this->options['use_ssl'] === true) {
-            $transport = 'ssl';
+        $transport = $this->options->getTransport();
+        $scheme = $transport === Transport::Tcp && $this->options->isUseSsl()
+            ? 'ssl'
+            : $transport->value;
+
+        $uri = $scheme . '://' . $host;
+        if ($transport !== Transport::Unix) {
+            $uri .= ':' . $this->options->getPort();
         }
 
-        $uri = $transport . '://' . $host;
-
-        if ($transport !== 'unix') {
-            $uri .= ':' . $this->options['port'];
-        }
-
+        $errorNumber = 0;
+        $errorMessage = '';
         $socket = @stream_socket_client(
             $uri,
-            $this->errorNumber,
-            $this->errorMessage,
-            $this->options['timeout_connect'],
+            $errorNumber,
+            $errorMessage,
+            $this->options->getTimeoutConnect(),
             STREAM_CLIENT_CONNECT,
-            $this->createSocketContext()
+            $this->createSocketContext(),
         );
+        $this->errorNumber = $errorNumber;
+        $this->errorMessage = $errorMessage;
+
         if ($socket === false) {
             throw new ConnectionException(sprintf(
                 'Unable to connect to %s: %s',
                 $host,
-                $this->errorMessage
+                $this->errorMessage,
             ));
         }
         $this->socket = $socket;
         $this->setStreamOpts();
-        $this->isEncrypted = $this->options['use_ssl'];
+        $this->isEncrypted = $this->options->isUseSsl();
 
         return $this;
     }
 
-    /**
-     * Get the options set for the socket.
-     *
-     * @return array<string, mixed>
-     */
-    public function getOptions() : array
+    public function getOptions(): SocketOptionsInterface
     {
         return $this->options;
     }
@@ -289,13 +204,12 @@ class Socket
     /**
      * Create a socket by connecting to a specific host.
      *
-     * @param string $host
-     * @param array<string, mixed> $options
-     * @return Socket
      * @throws ConnectionException
      */
-    public static function create(string $host, array $options = []) : Socket
-    {
+    public static function create(
+        string $host,
+        ?SocketOptions $options = null,
+    ): Socket {
         return (new self(null, $options))->connect($host);
     }
 
@@ -303,50 +217,52 @@ class Socket
      * Create a UNIX based socket.
      *
      * @param string $file The full path to the unix socket.
-     * @param array<string, mixed> $options Any additional options.
-     * @return Socket
      * @throws ConnectionException
      */
     public static function unix(
         string $file,
-        array $options = []
+        ?SocketOptions $options = null,
     ): Socket {
-        return self::create(
-            $file,
-            array_merge(
-                $options,
-                ['transport' => 'unix']
-            )
-        );
+        $options ??= new SocketOptions();
+        $options->setTransport(Transport::Unix);
+
+        return self::create($file, $options);
     }
 
     /**
      * Create a TCP based socket.
      *
-     * @param string $host
-     * @param array<string, mixed> $options
-     * @return Socket
      * @throws ConnectionException
      */
-    public static function tcp(string $host, array $options = []) : Socket
-    {
-        return self::create($host, array_merge($options, ['transport' => 'tcp']));
+    public static function tcp(
+        string $host,
+        SocketOptions $options = new SocketOptions(),
+    ): Socket {
+        $options->setTransport(Transport::Tcp);
+
+        return self::create(
+            $host,
+            $options,
+        );
     }
 
     /**
      * Create a UDP based socket.
      *
-     * @param string $host
-     * @param array<string, mixed> $options
-     * @return Socket
      * @throws ConnectionException
      */
-    public static function udp(string $host, array $options = []) : Socket
-    {
-        return self::create($host, array_merge($options, [
-            'transport' => 'udp',
-            'buffer_size' => 65507,
-        ]));
+    public static function udp(
+        string $host,
+        SocketOptions $options = new SocketOptions(),
+    ): Socket {
+        $options
+            ->setTransport(Transport::Udp)
+            ->setBufferSize(65507);
+
+        return self::create(
+            $host,
+            $options,
+        );
     }
 
     /**
@@ -354,21 +270,8 @@ class Socket
      */
     protected function createSocketContext()
     {
-        $sslOpts = $this->sslOpts;
-        foreach ($this->sslOptsMap as $optName => $sslOptsName) {
-            if (isset($this->options[$optName])) {
-                $sslOpts[$sslOptsName] = $this->options[$optName];
-            }
-        }
-        if ($this->options['ssl_validate_cert'] === false) {
-            $sslOpts = array_merge($sslOpts, [
-                'allow_self_signed' => true,
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-            ]);
-        }
-        $this->context = \stream_context_create([
-            'ssl' => $sslOpts,
+        $this->context = stream_context_create([
+            'ssl' => $this->options->toStreamContextSslOptions(),
         ]);
 
         return $this->context;
@@ -377,8 +280,11 @@ class Socket
     /**
      * Sets options on the stream that must be done after it is a resource.
      */
-    protected function setStreamOpts() : void
+    protected function setStreamOpts(): void
     {
-        stream_set_timeout($this->socket, $this->options['timeout_read']);
+        stream_set_timeout(
+            $this->socket,
+            $this->options->getTimeoutRead(),
+        );
     }
 }
