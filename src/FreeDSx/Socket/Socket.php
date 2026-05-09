@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use function fclose;
 use function fread;
 use function fwrite;
 use function stream_context_create;
@@ -122,10 +123,15 @@ class Socket
         return $this->isEncrypted;
     }
 
-    public function close(): static
+    /**
+     * @param bool $shutdown False closes only this process's FD copy without affecting shared socket state.
+     */
+    public function close(bool $shutdown = true): static
     {
         if ($this->socket !== null) {
-            stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+            $shutdown
+                ? stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR)
+                : fclose($this->socket);
         }
         $this->socket = null;
         $this->isEncrypted = false;

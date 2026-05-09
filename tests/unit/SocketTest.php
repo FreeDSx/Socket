@@ -162,6 +162,28 @@ final class SocketTest extends TestCase
         self::assertFalse($subject->isConnected());
     }
 
+    public function test_close_without_shutdown_disconnects_tcp(): void
+    {
+        $subject = Socket::tcp(
+            'www.google.com',
+            (new SocketOptions())->setPort(80),
+        );
+
+        self::assertTrue($subject->isConnected());
+        $subject->close(shutdown: false);
+        self::assertFalse($subject->isConnected());
+    }
+
+    public function test_close_without_shutdown_disconnects_unix(): void
+    {
+        $path = $this->createUnixServer();
+        $subject = Socket::unix($path);
+
+        self::assertTrue($subject->isConnected());
+        $subject->close(shutdown: false);
+        self::assertFalse($subject->isConnected());
+    }
+
     public function test_it_should_return_at_most_buffer_size_bytes_per_read(): void
     {
         [$local, $remote] = $this->createSocketPair();
