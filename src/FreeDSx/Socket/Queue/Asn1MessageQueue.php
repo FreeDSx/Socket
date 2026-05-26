@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace FreeDSx\Socket\Queue;
 
 use FreeDSx\Asn1\Encoder\EncoderInterface;
+use FreeDSx\Asn1\Exception\EncoderException;
 use FreeDSx\Asn1\Exception\PartialPduException;
 use FreeDSx\Asn1\Type\AbstractType;
 use FreeDSx\Socket\Exception\PartialMessageException;
@@ -48,6 +49,10 @@ class Asn1MessageQueue extends MessageQueue
         parent::__construct($socket);
     }
 
+    /**
+     * @throws PartialMessageException
+     * @throws EncoderException
+     */
     protected function decode(string $bytes): Message
     {
         try {
