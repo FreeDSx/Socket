@@ -51,6 +51,8 @@ trait HasSocketOptions
 
     private int $timeoutRead = 15;
 
+    private int $timeoutWrite = 0;
+
     /**
      * @var positive-int
      */
@@ -222,6 +224,18 @@ trait HasSocketOptions
     public function getTimeoutRead(): int
     {
         return $this->timeoutRead;
+    }
+
+    public function setTimeoutWrite(int $seconds): self
+    {
+        $this->timeoutWrite = $seconds;
+
+        return $this;
+    }
+
+    public function getTimeoutWrite(): int
+    {
+        return $this->timeoutWrite;
     }
 
     public function setBufferSize(int $bufferSize): self

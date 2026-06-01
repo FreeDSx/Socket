@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\FreeDSx\Socket;
 
+use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\Transport;
@@ -76,7 +77,58 @@ final class SocketTest extends TestCase
         self::assertNull($options->getSslPeerName());
         self::assertSame(3, $options->getTimeoutConnect());
         self::assertSame(15, $options->getTimeoutRead());
+        self::assertSame(0, $options->getTimeoutWrite());
         self::assertSame(8192, $options->getBufferSize());
+    }
+
+    public function test_a_write_timeout_of_zero_uses_the_unbounded_path(): void
+    {
+        [$local, $remote] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutWrite(0),
+        );
+
+        $subject->write('0123456789');
+
+        self::assertSame(
+            '0123456789',
+            fread($remote, 10),
+        );
+    }
+
+    public function test_a_bounded_write_sends_all_data_when_the_peer_reads(): void
+    {
+        [$local, $remote] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutWrite(5),
+        );
+
+        $subject->write('0123456789');
+
+        self::assertSame(
+            '0123456789',
+            fread($remote, 10),
+        );
+        self::assertTrue(stream_get_meta_data($local)['blocked']);
+    }
+
+    public function test_a_bounded_write_throws_when_the_peer_stops_reading(): void
+    {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('Cannot fill the socket to force a send stall on Windows.');
+        }
+
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutWrite(1),
+        );
+
+        $this->expectException(WriteTimeoutException::class);
+
+        $subject->write(str_repeat('x', 32 * 1024 * 1024));
     }
 
     public function test_it_should_create_a_socket(): void
