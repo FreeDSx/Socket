@@ -122,6 +122,7 @@ class SocketServer extends Socket
     {
         $clone = clone $server;
         $clone->setTimeoutRead($server->getIdleTimeout());
+        $clone->setTimeoutWrite($server->getWriteTimeout());
 
         return $clone;
     }

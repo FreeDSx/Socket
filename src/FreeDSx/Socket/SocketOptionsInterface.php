@@ -46,6 +46,8 @@ interface SocketOptionsInterface
 
     public function getTimeoutRead(): int;
 
+    public function getTimeoutWrite(): int;
+
     /**
      * @return positive-int
      */

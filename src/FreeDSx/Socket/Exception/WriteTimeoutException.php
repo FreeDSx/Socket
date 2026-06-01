@@ -13,13 +13,11 @@ declare(strict_types=1);
 
 namespace FreeDSx\Socket\Exception;
 
-use Exception;
-
 /**
- * Represents a connection issue with a socket.
+ * Thrown when a write blocks longer than the configured write timeout.
  *
  * @author Chad Sikorra <Chad.Sikorra@gmail.com>
  */
-class ConnectionException extends Exception
+final class WriteTimeoutException extends ConnectionException
 {
 }

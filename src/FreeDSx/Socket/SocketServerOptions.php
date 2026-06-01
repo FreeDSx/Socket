@@ -22,6 +22,8 @@ final class SocketServerOptions implements SocketOptionsInterface
 
     private int $idleTimeout = 600;
 
+    private int $writeTimeout = 0;
+
     public function __construct()
     {
         $this->setSslValidateCert(false);
@@ -42,5 +44,17 @@ final class SocketServerOptions implements SocketOptionsInterface
     public function getIdleTimeout(): int
     {
         return $this->idleTimeout;
+    }
+
+    public function setWriteTimeout(int $seconds): self
+    {
+        $this->writeTimeout = $seconds;
+
+        return $this;
+    }
+
+    public function getWriteTimeout(): int
+    {
+        return $this->writeTimeout;
     }
 }
