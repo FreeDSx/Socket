@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace FreeDSx\Socket;
 
+use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
+
 /**
  * Read-only contract Socket consumes when given configuration.
  */
@@ -47,6 +49,8 @@ interface SocketOptionsInterface
     public function getTimeoutRead(): int;
 
     public function getTimeoutWrite(): int;
+
+    public function getWriteTimeoutEnforcer(): WriteTimeoutEnforcerInterface;
 
     /**
      * @return positive-int

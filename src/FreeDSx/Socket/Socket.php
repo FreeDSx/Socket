@@ -14,21 +14,17 @@ declare(strict_types=1);
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
-use FreeDSx\Socket\Exception\WriteTimeoutException;
+use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
 
-use function error_clear_last;
-use function error_get_last;
 use function fclose;
 use function fread;
 use function fwrite;
 use function stream_context_create;
-use function stream_select;
 use function stream_set_blocking;
 use function stream_set_timeout;
 use function stream_socket_client;
 use function stream_socket_enable_crypto;
 use function stream_socket_shutdown;
-use function substr;
 
 /**
  * Represents a generic socket.
@@ -37,8 +33,6 @@ use function substr;
  */
 class Socket
 {
-    private const WRITE_ERROR_MESSAGE = 'Unable to write to the socket.';
-
     protected bool $isEncrypted = false;
 
     /**
@@ -55,14 +49,18 @@ class Socket
 
     protected int $errorNumber = 0;
 
+    protected readonly WriteTimeoutEnforcerInterface $writeTimeoutEnforcer;
+
     /**
      * @param resource|null $resource
      */
     public function __construct(
         $resource = null,
         protected readonly SocketOptionsInterface $options = new SocketOptions(),
+        ?WriteTimeoutEnforcerInterface $writeTimeoutEnforcer = null,
     ) {
         $this->socket = $resource;
+        $this->writeTimeoutEnforcer = $writeTimeoutEnforcer ?? $this->options->getWriteTimeoutEnforcer();
         if ($this->socket !== null) {
             $this->setStreamOpts();
         }
@@ -93,95 +91,24 @@ class Socket
     public function write(string $data): static
     {
         $timeout = $this->options->getTimeoutWrite();
+        $stream = $this->getStream();
 
         if ($timeout <= 0) {
             @fwrite(
-                $this->getStream(),
+                $stream,
                 $data,
             );
 
             return $this;
         }
 
-        $this->writeWithinTimeout(
+        $this->writeTimeoutEnforcer->write(
+            $stream,
             $data,
             $timeout,
         );
 
         return $this;
-    }
-
-    /**
-     * Writes, requiring progress within the write timeout. A stalled reader throws.
-     *
-     * @throws WriteTimeoutException when the socket is not writable within the timeout.
-     * @throws ConnectionException on a write failure.
-     */
-    private function writeWithinTimeout(
-        string $data,
-        int $timeout,
-    ): void {
-        $stream = $this->getStream();
-        $remaining = $data;
-
-        // Non-blocking so fwrite returns partial counts and stream_select bounds the wait; restored after.
-        stream_set_blocking($stream, false);
-
-        try {
-            while ($remaining !== '') {
-                $write = [$stream];
-                $read = [];
-                $except = [];
-                error_clear_last();
-                $ready = @stream_select(
-                    $read,
-                    $write,
-                    $except,
-                    $timeout,
-                );
-
-                if ($ready === false) {
-                    throw new ConnectionException($this->lastWriteErrorMessage());
-                }
-                if ($ready === 0) {
-                    throw new WriteTimeoutException(sprintf(
-                        'The write operation timed out after %d seconds.',
-                        $timeout,
-                    ));
-                }
-
-                error_clear_last();
-                $written = @fwrite(
-                    $stream,
-                    $remaining,
-                );
-                if ($written === false) {
-                    throw new ConnectionException($this->lastWriteErrorMessage());
-                }
-
-                $remaining = substr(
-                    $remaining,
-                    $written,
-                );
-            }
-        } finally {
-            @stream_set_blocking(
-                $stream,
-                true,
-            );
-        }
-    }
-
-    private function lastWriteErrorMessage(): string
-    {
-        $message = self::WRITE_ERROR_MESSAGE;
-        $error = error_get_last();
-
-        if ($error !== null && $error['message'] !== '') {
-            $message .= ' ' . $error['message'];
-        }
-
-        return $message;
     }
 
     public function block(bool $block): static
