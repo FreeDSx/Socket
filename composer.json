@@ -22,10 +22,12 @@
     "phpunit/phpunit": "^11.5",
     "phpstan/phpstan": "^2.0",
     "phpstan/phpstan-phpunit": "^2.0",
-    "phpstan/extension-installer": "^1.4"
+    "phpstan/extension-installer": "^1.4",
+    "swoole/ide-helper": "^6.0"
   },
   "suggest": {
     "ext-openssl": "For SSL/TLS support.",
+    "ext-swoole": "For the coroutine-aware SwooleTimerEnforcer write timeout strategy.",
     "freedsx/asn1": "For ASN.1 based message queues."
   },
   "autoload": {

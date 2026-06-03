@@ -16,6 +16,8 @@ namespace Tests\Unit\FreeDSx\Socket;
 use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\SocketPoolOptions;
 use FreeDSx\Socket\SocketServerOptions;
+use FreeDSx\Socket\Timeout\BlockingSelectEnforcer;
+use FreeDSx\Socket\Timeout\SwooleTimerEnforcer;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -95,6 +97,25 @@ final class SocketOptionsTest extends TestCase
     public function test_server_options_should_default_idle_timeout_to_600(): void
     {
         self::assertSame(600, (new SocketServerOptions())->getIdleTimeout());
+    }
+
+    public function test_it_defaults_to_the_blocking_select_write_timeout_enforcer(): void
+    {
+        self::assertInstanceOf(
+            BlockingSelectEnforcer::class,
+            (new SocketOptions())->getWriteTimeoutEnforcer(),
+        );
+    }
+
+    public function test_it_can_set_the_write_timeout_enforcer(): void
+    {
+        $enforcer = new SwooleTimerEnforcer();
+        $options = (new SocketOptions())->setWriteTimeoutEnforcer($enforcer);
+
+        self::assertSame(
+            $enforcer,
+            $options->getWriteTimeoutEnforcer(),
+        );
     }
 
     public function test_pool_options_default_to_one_second_connect_timeout(): void

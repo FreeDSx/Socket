@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace FreeDSx\Socket;
 
+use FreeDSx\Socket\Timeout\BlockingSelectEnforcer;
+use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
 use InvalidArgumentException;
 
 /**
@@ -20,6 +22,8 @@ use InvalidArgumentException;
  */
 trait HasSocketOptions
 {
+    private ?WriteTimeoutEnforcerInterface $writeTimeoutEnforcer = null;
+
     private Transport $transport = Transport::Tcp;
 
     private int $port = 389;
@@ -236,6 +240,18 @@ trait HasSocketOptions
     public function getTimeoutWrite(): int
     {
         return $this->timeoutWrite;
+    }
+
+    public function setWriteTimeoutEnforcer(WriteTimeoutEnforcerInterface $enforcer): self
+    {
+        $this->writeTimeoutEnforcer = $enforcer;
+
+        return $this;
+    }
+
+    public function getWriteTimeoutEnforcer(): WriteTimeoutEnforcerInterface
+    {
+        return $this->writeTimeoutEnforcer ??= new BlockingSelectEnforcer();
     }
 
     public function setBufferSize(int $bufferSize): self
