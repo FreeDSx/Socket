@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\FreeDSx\Socket;
 
+use FreeDSx\Socket\Exception\IdleTimeoutException;
 use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
@@ -266,6 +267,30 @@ final class SocketTest extends TestCase
         $subject = new Socket($local);
 
         self::assertFalse($subject->read());
+    }
+
+    public function test_it_should_throw_an_idle_timeout_when_a_blocking_read_exceeds_the_read_timeout(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(1),
+        );
+
+        $this->expectException(IdleTimeoutException::class);
+
+        $subject->read();
+    }
+
+    public function test_it_should_not_throw_an_idle_timeout_on_a_non_blocking_read(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(1),
+        );
+
+        self::assertFalse($subject->read(false));
     }
 
     public function test_it_should_leave_the_socket_in_blocking_mode_after_a_non_blocking_read(): void

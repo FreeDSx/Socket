@@ -14,12 +14,15 @@ declare(strict_types=1);
 namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
+use FreeDSx\Socket\Exception\IdleTimeoutException;
 use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
 
 use function fclose;
 use function fread;
 use function fwrite;
+use function sprintf;
 use function stream_context_create;
+use function stream_get_meta_data;
 use function stream_set_blocking;
 use function stream_set_timeout;
 use function stream_socket_client;
@@ -66,6 +69,9 @@ class Socket
         }
     }
 
+    /**
+     * @throws IdleTimeoutException when a blocking read makes no progress within the configured read timeout.
+     */
     public function read(bool $block = true): string|false
     {
         $stream = $this->getStream();
@@ -75,6 +81,15 @@ class Socket
             $stream,
             $this->options->getBufferSize(),
         );
+
+        // A blocking read yields no bytes on either a peer disconnect (feof, empty string) or a read timeout
+        // (false). Only the timeout case sets the timed_out meta flag, which distinguishes the two.
+        if ($block && ($data === '' || $data === false) && $this->hasReadTimedOut($stream)) {
+            throw new IdleTimeoutException(sprintf(
+                'The connection was idle for longer than the read timeout of %d seconds.',
+                $this->options->getTimeoutRead(),
+            ));
+        }
 
         if (!$block) {
             stream_set_blocking(
@@ -86,6 +101,15 @@ class Socket
         return $data === ''
             ? false
             : $data;
+    }
+
+    /**
+     * @param resource $stream
+     */
+    private function hasReadTimedOut($stream): bool
+    {
+        return $this->options->getTimeoutRead() > 0
+            && stream_get_meta_data($stream)['timed_out'] === true;
     }
 
     public function write(string $data): static
