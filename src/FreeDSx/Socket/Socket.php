@@ -16,12 +16,16 @@ namespace FreeDSx\Socket;
 use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Exception\IdleTimeoutException;
 use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
+use FreeDSx\Socket\Tls\Certificate;
+use OpenSSLCertificate;
 
 use function fclose;
 use function fread;
 use function fwrite;
+use function is_array;
 use function sprintf;
 use function stream_context_create;
+use function stream_context_get_options;
 use function stream_get_meta_data;
 use function stream_set_blocking;
 use function stream_set_timeout;
@@ -164,6 +168,25 @@ class Socket
     public function isEncrypted(): bool
     {
         return $this->isEncrypted;
+    }
+
+    /**
+     * The peer's verified TLS certificate, if one was presented during the handshake.
+     */
+    public function getPeerCertificate(): ?Certificate
+    {
+        if ($this->socket === null) {
+            return null;
+        }
+
+        $ssl = stream_context_get_options($this->socket)['ssl'] ?? null;
+        $peer = is_array($ssl)
+            ? ($ssl['peer_certificate'] ?? null)
+            : null;
+
+        return $peer instanceof OpenSSLCertificate
+            ? Certificate::fromX509($peer)
+            : null;
     }
 
     /**

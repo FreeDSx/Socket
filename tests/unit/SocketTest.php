@@ -17,7 +17,11 @@ use FreeDSx\Socket\Exception\IdleTimeoutException;
 use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
+use FreeDSx\Socket\Tls\Certificate;
 use FreeDSx\Socket\Transport;
+use OpenSSLAsymmetricKey;
+use OpenSSLCertificate;
+use OpenSSLCertificateSigningRequest;
 use PHPUnit\Framework\TestCase;
 
 final class SocketTest extends TestCase
@@ -301,6 +305,58 @@ final class SocketTest extends TestCase
         $subject->read(false);
 
         self::assertTrue(stream_get_meta_data($local)['blocked']);
+    }
+
+    public function test_it_should_return_null_for_the_peer_certificate_when_not_connected(): void
+    {
+        self::assertNull((new Socket())->getPeerCertificate());
+    }
+
+    public function test_it_should_return_null_for_the_peer_certificate_when_none_was_presented(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket($local);
+
+        self::assertNull($subject->getPeerCertificate());
+    }
+
+    public function test_it_should_return_the_peer_certificate_when_one_was_presented(): void
+    {
+        [$local] = $this->createSocketPair();
+        stream_context_set_option($local, 'ssl', 'peer_certificate', $this->makeCertificate());
+        $subject = new Socket($local);
+
+        $certificate = $subject->getPeerCertificate();
+
+        self::assertInstanceOf(
+            Certificate::class,
+            $certificate,
+        );
+        self::assertSame(
+            'peer.test',
+            $certificate->getSubject()['CN'] ?? null,
+        );
+    }
+
+    private function makeCertificate(): OpenSSLCertificate
+    {
+        $key = openssl_pkey_new(['private_key_bits' => 2048]);
+        if (!$key instanceof OpenSSLAsymmetricKey) {
+            self::fail('Failed to generate a private key.');
+        }
+
+        // openssl_csr_new() takes the key by reference, so re-narrow both after the call.
+        $csr = openssl_csr_new(['commonName' => 'peer.test'], $key);
+        if (!$csr instanceof OpenSSLCertificateSigningRequest || !$key instanceof OpenSSLAsymmetricKey) {
+            self::fail('Failed to generate a certificate signing request.');
+        }
+
+        $certificate = openssl_csr_sign($csr, null, $key, 1);
+        if (!$certificate instanceof OpenSSLCertificate) {
+            self::fail('Failed to sign the certificate.');
+        }
+
+        return $certificate;
     }
 
     /**
