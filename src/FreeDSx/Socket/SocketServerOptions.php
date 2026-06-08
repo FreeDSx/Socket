@@ -27,6 +27,8 @@ final class SocketServerOptions implements SocketOptionsInterface
     public function __construct()
     {
         $this->setSslValidateCert(false);
+        // A server verifies the client certificate chains to a trusted CA, never that it matches a hostname.
+        $this->setSslVerifyPeerName(false);
         $this->setSslCryptoMethod(
             STREAM_CRYPTO_METHOD_TLSv1_2_SERVER
             | STREAM_CRYPTO_METHOD_TLSv1_1_SERVER
