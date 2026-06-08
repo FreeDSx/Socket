@@ -72,6 +72,16 @@ final class SocketOptionsTest extends TestCase
         self::assertFalse($ctx['allow_self_signed']);
     }
 
+    public function test_it_can_verify_the_peer_without_verifying_its_name(): void
+    {
+        $ctx = (new SocketOptions())
+            ->setSslVerifyPeerName(false)
+            ->toStreamContextSslOptions();
+
+        self::assertTrue($ctx['verify_peer']);
+        self::assertFalse($ctx['verify_peer_name']);
+    }
+
     public function test_set_buffer_size_must_be_positive(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -82,6 +92,11 @@ final class SocketOptionsTest extends TestCase
     public function test_server_options_should_disable_certificate_validation_by_default(): void
     {
         self::assertFalse((new SocketServerOptions())->isSslValidateCert());
+    }
+
+    public function test_server_options_should_not_verify_the_peer_name_by_default(): void
+    {
+        self::assertFalse((new SocketServerOptions())->toStreamContextSslOptions()['verify_peer_name']);
     }
 
     public function test_server_options_should_use_server_side_crypto_method_by_default(): void

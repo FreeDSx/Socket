@@ -39,6 +39,8 @@ trait HasSocketOptions
 
     private bool $sslValidateCert = true;
 
+    private ?bool $sslVerifyPeerName = null;
+
     private ?bool $sslAllowSelfSigned = null;
 
     private ?string $sslCaCert = null;
@@ -132,6 +134,24 @@ trait HasSocketOptions
     public function isSslValidateCert(): bool
     {
         return $this->sslValidateCert;
+    }
+
+    /**
+     * Whether to verify the peer's name (hostname). Null follows the validate-cert setting.
+     *
+     * Note: A server verifying a client certificate should set this false. There is no hostname to match on a client
+     *       certificate.
+     */
+    public function setSslVerifyPeerName(?bool $sslVerifyPeerName): self
+    {
+        $this->sslVerifyPeerName = $sslVerifyPeerName;
+
+        return $this;
+    }
+
+    public function getSslVerifyPeerName(): ?bool
+    {
+        return $this->sslVerifyPeerName;
     }
 
     public function setSslAllowSelfSigned(?bool $sslAllowSelfSigned): self
@@ -280,7 +300,7 @@ trait HasSocketOptions
         $opts = [
             'allow_self_signed' => $this->sslAllowSelfSigned ?? false,
             'verify_peer' => $this->sslValidateCert,
-            'verify_peer_name' => $this->sslValidateCert,
+            'verify_peer_name' => $this->sslVerifyPeerName ?? $this->sslValidateCert,
             'capture_peer_cert' => true,
             'capture_peer_cert_chain' => true,
             'crypto_method' => $this->sslCryptoMethod,
