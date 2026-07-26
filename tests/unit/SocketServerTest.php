@@ -23,6 +23,7 @@ use PHPUnit\Framework\TestCase;
 
 final class SocketServerTest extends TestCase
 {
+    use RequiresNonWindows;
     use RequiresUnixTransport;
 
     private string $testSocket = '';
@@ -56,6 +57,26 @@ final class SocketServerTest extends TestCase
         $this->subject = SocketServer::bind('0.0.0.0', 33389);
 
         self::assertNull($this->subject->accept(0));
+    }
+
+    public function test_it_should_only_allow_a_second_server_on_the_same_port_when_reusing_it(): void
+    {
+        $this->requireNonWindows('Windows has no SO_REUSEPORT and already permits rebinding a port without it.');
+
+        $this->subject = (new SocketServer(
+            (new SocketServerOptions())->setReusePort(true),
+        ))->listen('127.0.0.1', 33390);
+
+        $second = (new SocketServer(
+            (new SocketServerOptions())->setReusePort(true),
+        ))->listen('127.0.0.1', 33390);
+        $second->close();
+
+        $withoutReuse = new SocketServer(new SocketServerOptions());
+
+        $this->expectException(ConnectionException::class);
+
+        $withoutReuse->listen('127.0.0.1', 33390);
     }
 
     public function test_it_should_construct_a_tcp_based_socket_server(): void

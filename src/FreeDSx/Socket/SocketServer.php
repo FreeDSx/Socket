@@ -45,6 +45,21 @@ class SocketServer extends Socket
     }
 
     /**
+     * Adds the socket-level options, which only a listening socket has any use for.
+     *
+     * @return resource
+     */
+    protected function createSocketContext()
+    {
+        $this->context = stream_context_create([
+            'ssl' => $this->options->toStreamContextSslOptions(),
+            'socket' => $this->getOptions()->toStreamContextSocketOptions(),
+        ]);
+
+        return $this->context;
+    }
+
+    /**
      * Create the socket server and bind to a specific port to listen for clients.
      *
      * @throws ConnectionException

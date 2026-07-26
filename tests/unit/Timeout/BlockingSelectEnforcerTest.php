@@ -16,9 +16,12 @@ namespace Tests\Unit\FreeDSx\Socket\Timeout;
 use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Timeout\BlockingSelectEnforcer;
 use PHPUnit\Framework\TestCase;
+use Tests\Unit\FreeDSx\Socket\RequiresNonWindows;
 
 final class BlockingSelectEnforcerTest extends TestCase
 {
+    use RequiresNonWindows;
+
     private BlockingSelectEnforcer $subject;
 
     /**
@@ -77,9 +80,7 @@ final class BlockingSelectEnforcerTest extends TestCase
 
     public function test_it_throws_when_the_peer_stops_reading(): void
     {
-        if (DIRECTORY_SEPARATOR === '\\') {
-            self::markTestSkipped('Cannot fill the socket to force a send stall on Windows.');
-        }
+        $this->requireFillableSocket();
 
         [$local] = $this->createSocketPair();
 
