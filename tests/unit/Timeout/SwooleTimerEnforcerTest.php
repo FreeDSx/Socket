@@ -18,10 +18,13 @@ use FreeDSx\Socket\Timeout\SwooleTimerEnforcer;
 use PHPUnit\Framework\TestCase;
 use Swoole\Coroutine;
 use Swoole\Runtime;
+use Tests\Unit\FreeDSx\Socket\RequiresNonWindows;
 use Throwable;
 
 final class SwooleTimerEnforcerTest extends TestCase
 {
+    use RequiresNonWindows;
+
     private SwooleTimerEnforcer $subject;
 
     protected function setUp(): void
@@ -29,9 +32,7 @@ final class SwooleTimerEnforcerTest extends TestCase
         if (!extension_loaded('swoole')) {
             self::markTestSkipped('The swoole extension is required.');
         }
-        if (DIRECTORY_SEPARATOR === '\\') {
-            self::markTestSkipped('Cannot fill the socket to force a send stall on Windows.');
-        }
+        $this->requireFillableSocket();
 
         $this->subject = new SwooleTimerEnforcer();
     }

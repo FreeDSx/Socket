@@ -26,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 
 final class SocketTest extends TestCase
 {
+    use RequiresNonWindows;
     use RequiresUnixTransport;
 
     /**
@@ -121,9 +122,7 @@ final class SocketTest extends TestCase
 
     public function test_a_bounded_write_throws_when_the_peer_stops_reading(): void
     {
-        if (DIRECTORY_SEPARATOR === '\\') {
-            self::markTestSkipped('Cannot fill the socket to force a send stall on Windows.');
-        }
+        $this->requireFillableSocket();
 
         [$local] = $this->createSocketPair();
         $subject = new Socket(
