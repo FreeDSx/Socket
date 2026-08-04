@@ -69,6 +69,7 @@ class Socket
         $this->socket = $resource;
         $this->writeTimeoutEnforcer = $writeTimeoutEnforcer ?? $this->options->getWriteTimeoutEnforcer();
         if ($this->socket !== null) {
+            $this->isEncrypted = $this->options->isUseSsl();
             $this->setStreamOpts();
         }
     }
