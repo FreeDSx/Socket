@@ -358,6 +358,40 @@ final class SocketTest extends TestCase
         return $certificate;
     }
 
+    public function test_a_socket_adopting_a_resource_under_ssl_options_is_encrypted(): void
+    {
+        [$local] = $this->createSocketPair();
+
+        $socket = new Socket(
+            $local,
+            (new SocketOptions())->setUseSsl(true),
+        );
+
+        self::assertTrue($socket->isEncrypted());
+    }
+
+    public function test_a_socket_adopting_a_resource_without_ssl_options_is_not_encrypted(): void
+    {
+        [$local] = $this->createSocketPair();
+
+        $socket = new Socket(
+            $local,
+            new SocketOptions(),
+        );
+
+        self::assertFalse($socket->isEncrypted());
+    }
+
+    public function test_an_unconnected_socket_is_not_encrypted_even_under_ssl_options(): void
+    {
+        $socket = new Socket(
+            null,
+            (new SocketOptions())->setUseSsl(true),
+        );
+
+        self::assertFalse($socket->isEncrypted());
+    }
+
     /**
      * @return array{0: resource, 1: resource}
      */
