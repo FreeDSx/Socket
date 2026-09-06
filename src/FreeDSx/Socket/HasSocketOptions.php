@@ -39,6 +39,8 @@ trait HasSocketOptions
 
     private bool $sslValidateCert = true;
 
+    private bool $sslCapturePeerCert = true;
+
     private ?bool $sslVerifyPeerName = null;
 
     private ?bool $sslAllowSelfSigned = null;
@@ -134,6 +136,23 @@ trait HasSocketOptions
     public function isSslValidateCert(): bool
     {
         return $this->sslValidateCert;
+    }
+
+    /**
+     * Whether to ask the handshake for the peer's certificate.
+     *
+     * Mostly to satisfy Swoole, which does not support this.
+     */
+    public function setSslCapturePeerCert(bool $sslCapturePeerCert): self
+    {
+        $this->sslCapturePeerCert = $sslCapturePeerCert;
+
+        return $this;
+    }
+
+    public function isSslCapturePeerCert(): bool
+    {
+        return $this->sslCapturePeerCert;
     }
 
     /**
@@ -301,12 +320,14 @@ trait HasSocketOptions
             'allow_self_signed' => $this->sslAllowSelfSigned ?? false,
             'verify_peer' => $this->sslValidateCert,
             'verify_peer_name' => $this->sslVerifyPeerName ?? $this->sslValidateCert,
-            'capture_peer_cert' => true,
             'capture_peer_cert_chain' => true,
             'crypto_method' => $this->sslCryptoMethod,
             'ciphers' => $this->sslCiphers,
         ];
 
+        if ($this->sslCapturePeerCert) {
+            $opts['capture_peer_cert'] = true;
+        }
         if ($this->sslCaCert !== null) {
             $opts['cafile'] = $this->sslCaCert;
         }

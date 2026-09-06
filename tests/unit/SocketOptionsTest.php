@@ -72,6 +72,22 @@ final class SocketOptionsTest extends TestCase
         self::assertFalse($ctx['allow_self_signed']);
     }
 
+    public function test_it_should_capture_the_peer_cert_by_default(): void
+    {
+        $ctx = (new SocketOptions())->toStreamContextSslOptions();
+
+        self::assertTrue($ctx['capture_peer_cert']);
+    }
+
+    public function test_it_should_omit_the_peer_cert_capture_when_suppressed(): void
+    {
+        $ctx = (new SocketOptions())
+            ->setSslCapturePeerCert(false)
+            ->toStreamContextSslOptions();
+
+        self::assertArrayNotHasKey('capture_peer_cert', $ctx);
+    }
+
     public function test_it_can_verify_the_peer_without_verifying_its_name(): void
     {
         $ctx = (new SocketOptions())
