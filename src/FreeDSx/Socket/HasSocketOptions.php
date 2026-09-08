@@ -59,6 +59,8 @@ trait HasSocketOptions
 
     private int $timeoutRead = 15;
 
+    private int $timeoutHandshake = 5;
+
     private int $timeoutWrite = 0;
 
     /**
@@ -267,6 +269,18 @@ trait HasSocketOptions
     public function getTimeoutRead(): int
     {
         return $this->timeoutRead;
+    }
+
+    public function setTimeoutHandshake(int $seconds): self
+    {
+        $this->timeoutHandshake = $seconds;
+
+        return $this;
+    }
+
+    public function getTimeoutHandshake(): int
+    {
+        return $this->timeoutHandshake;
     }
 
     public function setTimeoutWrite(int $seconds): self
