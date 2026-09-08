@@ -285,6 +285,46 @@ final class SocketTest extends TestCase
         $subject->read();
     }
 
+    public function test_a_blocking_read_dispatches_a_signal_that_arrives_while_it_waits(): void
+    {
+        if (!function_exists('pcntl_async_signals')) {
+            self::markTestSkipped('The pcntl extension is required to deliver a signal mid-read.');
+        }
+
+        [$local, $remote] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        $handled = false;
+        pcntl_async_signals(true);
+        pcntl_signal(
+            SIGALRM,
+            function () use (&$handled, $remote): void {
+                $handled = true;
+                fwrite($remote, 'woke');
+            },
+        );
+        pcntl_alarm(1);
+
+        try {
+            $data = $subject->read();
+        } finally {
+            pcntl_alarm(0);
+            pcntl_signal(SIGALRM, SIG_DFL);
+        }
+
+        self::assertTrue(
+            $handled,
+            'The signal handler never ran.',
+        );
+        self::assertSame(
+            'woke',
+            $data,
+        );
+    }
+
     public function test_it_should_not_throw_an_idle_timeout_on_a_non_blocking_read(): void
     {
         [$local] = $this->createSocketPair();
