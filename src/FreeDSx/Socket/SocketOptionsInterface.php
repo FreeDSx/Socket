@@ -48,6 +48,11 @@ interface SocketOptionsInterface
 
     public function getTimeoutRead(): int;
 
+    /**
+     * Seconds a TLS handshake may take.
+     */
+    public function getTimeoutHandshake(): int;
+
     public function getTimeoutWrite(): int;
 
     public function getWriteTimeoutEnforcer(): WriteTimeoutEnforcerInterface;

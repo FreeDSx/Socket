@@ -19,6 +19,7 @@ use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
 use FreeDSx\Socket\Tls\Certificate;
 use OpenSSLCertificate;
 
+use function error_get_last;
 use function fclose;
 use function fread;
 use function fwrite;
@@ -220,11 +221,21 @@ class Socket
             $stream,
             true,
         );
-        $result = stream_socket_enable_crypto(
+        // Bounded on its own, since the read timeout belongs to an idle session and can be far longer.
+        stream_set_timeout(
+            $stream,
+            $this->options->getTimeoutHandshake(),
+        );
+
+        // Suppressed so a peer that stalls the handshake cannot make the process write to stderr.
+        $result = @stream_socket_enable_crypto(
             $stream,
             $encrypt,
             $this->options->getSslCryptoMethod(),
         );
+        $lastError = error_get_last();
+
+        $this->setStreamOpts();
         stream_set_blocking(
             $stream,
             false,
@@ -234,7 +245,7 @@ class Socket
             throw new ConnectionException(sprintf(
                 'Unable to %s encryption on TCP connection. %s',
                 $encrypt ? 'enable' : 'disable',
-                $this->errorMessage,
+                $lastError['message'] ?? $this->errorMessage,
             ));
         }
         $this->isEncrypted = $encrypt;
