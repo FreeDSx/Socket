@@ -21,13 +21,17 @@ use OpenSSLCertificate;
 
 use function error_get_last;
 use function fclose;
+use function fmod;
 use function fread;
 use function fwrite;
 use function is_array;
+use function is_resource;
+use function microtime;
 use function sprintf;
 use function stream_context_create;
 use function stream_context_get_options;
 use function stream_get_meta_data;
+use function stream_select;
 use function stream_set_blocking;
 use function stream_set_timeout;
 use function stream_socket_client;
@@ -41,6 +45,8 @@ use function stream_socket_shutdown;
  */
 class Socket
 {
+    private const MICROSECONDS_PER_SECOND = 1_000_000;
+
     protected bool $isEncrypted = false;
 
     /**
@@ -81,6 +87,17 @@ class Socket
     public function read(bool $block = true): string|false
     {
         $stream = $this->getStream();
+
+        // Bytes decrypted into the TLS buffer are off the wire already.
+        $buffered = $block && $this->isEncrypted
+            ? $this->readWithoutBlocking($stream)
+            : '';
+        if ($buffered !== '') {
+            return $buffered;
+        }
+        if ($block) {
+            $this->awaitReadable($stream);
+        }
         stream_set_blocking($stream, $block);
 
         $data = fread(
@@ -107,6 +124,76 @@ class Socket
         return $data === ''
             ? false
             : $data;
+    }
+
+    /**
+     * Take whatever is already buffered without waiting.
+     *
+     * @param resource $stream
+     * @return string Whatever is in the buffer. Empty string when nothing is.
+     */
+    private function readWithoutBlocking($stream): string
+    {
+        stream_set_blocking($stream, false);
+
+        $data = fread(
+            $stream,
+            $this->options->getBufferSize(),
+        );
+
+        stream_set_blocking($stream, true);
+
+        return $data === false
+            ? ''
+            : $data;
+    }
+
+    /**
+     * Wait for the socket to become readable. This enforces the read timeout that the blocking read would.
+     *
+     * Waiting here returns on EINTR and lets the caller run its signal handlers.
+     *
+     * @param resource $stream
+     * @throws IdleTimeoutException
+     */
+    private function awaitReadable($stream): void
+    {
+        $timeout = $this->options->getTimeoutRead();
+        $deadline = $timeout > 0
+            ? microtime(true) + $timeout
+            : null;
+
+        while (true) {
+            $remaining = $deadline === null
+                ? null
+                : $deadline - microtime(true);
+
+            if ($remaining !== null && $remaining <= 0) {
+                throw new IdleTimeoutException(sprintf(
+                    'The connection was idle for longer than the read timeout of %d seconds.',
+                    $timeout,
+                ));
+            }
+
+            $read = [$stream];
+            $write = [];
+            $except = [];
+
+            $ready = @stream_select(
+                $read,
+                $write,
+                $except,
+                $remaining === null ? null : (int) $remaining,
+                $remaining === null ? 0 : (int) (fmod($remaining, 1.0) * self::MICROSECONDS_PER_SECOND),
+            );
+
+            if ($ready > 0) {
+                return;
+            }
+            if (!is_resource($stream)) {
+                return;
+            }
+        }
     }
 
     /**
