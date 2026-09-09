@@ -48,7 +48,6 @@ final class BlockingSelectEnforcer implements WriteTimeoutEnforcerInterface
                 $write = [$stream];
                 $read = [];
                 $except = [];
-                error_clear_last();
                 $ready = @stream_select(
                     $read,
                     $write,
@@ -56,9 +55,7 @@ final class BlockingSelectEnforcer implements WriteTimeoutEnforcerInterface
                     $timeout,
                 );
 
-                if ($ready === false) {
-                    $this->throwWriteError();
-                }
+                // The write itself decides whether the socket is still usable.
                 if ($ready === 0) {
                     throw new WriteTimeoutException(sprintf(
                         'The write operation timed out after %d seconds.',
@@ -66,18 +63,9 @@ final class BlockingSelectEnforcer implements WriteTimeoutEnforcerInterface
                     ));
                 }
 
-                error_clear_last();
-                $written = @fwrite(
+                $remaining = $this->writeRemaining(
                     $stream,
                     $remaining,
-                );
-                if ($written === false) {
-                    $this->throwWriteError();
-                }
-
-                $remaining = substr(
-                    $remaining,
-                    $written,
                 );
             }
         } finally {
@@ -86,5 +74,30 @@ final class BlockingSelectEnforcer implements WriteTimeoutEnforcerInterface
                 true,
             );
         }
+    }
+
+    /**
+     * Writes what is left and returning what still has to go out.
+     *
+     * @param resource $stream
+     */
+    private function writeRemaining(
+        $stream,
+        string $remaining,
+    ): string {
+        error_clear_last();
+        $written = @fwrite(
+            $stream,
+            $remaining,
+        );
+
+        if ($written === false) {
+            $this->throwWriteError();
+        }
+
+        return substr(
+            $remaining,
+            $written,
+        );
     }
 }

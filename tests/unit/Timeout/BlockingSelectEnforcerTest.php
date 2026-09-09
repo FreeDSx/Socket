@@ -93,6 +93,67 @@ final class BlockingSelectEnforcerTest extends TestCase
         );
     }
 
+    public function test_a_signal_arriving_while_it_waits_does_not_abort_the_send(): void
+    {
+        $this->requireFillableSocket();
+
+        if (!function_exists('pcntl_async_signals')) {
+            self::markTestSkipped('The pcntl extension is required to interrupt the wait.');
+        }
+
+        [$local, $remote] = $this->createSocketPair();
+        $this->fillSocket($local);
+
+        pcntl_async_signals(true);
+        pcntl_signal(
+            SIGALRM,
+            static function () use ($remote): void {
+                // Frees room so the interrupted send can carry on once it resumes.
+                stream_set_blocking($remote, false);
+
+                while (fread($remote, 65536) !== '') {
+                }
+            },
+        );
+        pcntl_alarm(1);
+
+        try {
+            $this->subject->write(
+                $local,
+                'payload',
+                10,
+            );
+        } finally {
+            pcntl_alarm(0);
+            pcntl_signal(SIGALRM, SIG_DFL);
+        }
+
+        stream_set_blocking($remote, false);
+        $drained = '';
+
+        while (($chunk = fread($remote, 65536)) !== '' && $chunk !== false) {
+            $drained .= $chunk;
+        }
+
+        self::assertStringEndsWith(
+            'payload',
+            $drained,
+        );
+    }
+
+    /**
+     * @param resource $stream
+     */
+    private function fillSocket($stream): void
+    {
+        stream_set_blocking($stream, false);
+
+        while (@fwrite($stream, str_repeat('x', 65536)) > 0) {
+        }
+
+        stream_set_blocking($stream, true);
+    }
+
     /**
      * @return array{0: resource, 1: resource}
      */
