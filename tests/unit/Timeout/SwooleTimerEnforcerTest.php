@@ -106,6 +106,36 @@ final class SwooleTimerEnforcerTest extends TestCase
         );
     }
 
+    public function test_it_throws_a_write_timeout_inside_a_coroutine_when_a_non_blocking_stream_stalls(): void
+    {
+        $caught = null;
+        $this->runInCoroutine(function () use (&$caught): void {
+            [$local, $remote] = $this->createSocketPair();
+            stream_set_blocking(
+                $local,
+                false,
+            );
+
+            try {
+                $this->subject->write(
+                    $local,
+                    str_repeat('x', 32 * 1024 * 1024),
+                    1,
+                );
+            } catch (Throwable $e) {
+                $caught = $e;
+            } finally {
+                fclose($local);
+                fclose($remote);
+            }
+        });
+
+        self::assertInstanceOf(
+            WriteTimeoutException::class,
+            $caught,
+        );
+    }
+
     private function runInCoroutine(callable $callback): void
     {
         Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
