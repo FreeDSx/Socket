@@ -21,6 +21,7 @@ use Swoole\Timer;
 use function error_clear_last;
 use function fwrite;
 use function sprintf;
+use function stream_set_blocking;
 use function substr;
 
 /**
@@ -68,6 +69,11 @@ final readonly class SwooleTimerEnforcer implements WriteTimeoutEnforcerInterfac
         string $data,
         int $timeout,
     ): void {
+        stream_set_blocking(
+            $stream,
+            true,
+        );
+
         $remaining = $data;
         $coroutineId = Coroutine::getCid();
         $timeoutMs = $timeout * 1000;
