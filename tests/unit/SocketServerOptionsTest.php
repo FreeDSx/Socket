@@ -38,6 +38,7 @@ final class SocketServerOptionsTest extends TestCase
         self::assertFalse($this->subject->isReusePort());
         self::assertFalse($this->subject->isReuseAddress());
         self::assertNull($this->subject->getBacklog());
+        self::assertFalse($this->subject->isTcpNoDelay());
     }
 
     public function test_it_emits_the_port_reuse_option(): void
@@ -70,18 +71,30 @@ final class SocketServerOptionsTest extends TestCase
         );
     }
 
+    public function test_it_emits_the_tcp_no_delay_option(): void
+    {
+        $this->subject->setTcpNoDelay(true);
+
+        self::assertSame(
+            ['tcp_nodelay' => true],
+            $this->subject->toStreamContextSocketOptions(),
+        );
+    }
+
     public function test_it_emits_every_option_that_was_set(): void
     {
         $this->subject
             ->setReusePort(true)
             ->setReuseAddress(true)
-            ->setBacklog(128);
+            ->setBacklog(128)
+            ->setTcpNoDelay(true);
 
         self::assertSame(
             [
                 'so_reuseport' => true,
                 'so_reuseaddr' => true,
                 'backlog' => 128,
+                'tcp_nodelay' => true,
             ],
             $this->subject->toStreamContextSocketOptions(),
         );
@@ -93,7 +106,9 @@ final class SocketServerOptionsTest extends TestCase
             ->setReusePort(true)
             ->setReusePort(false)
             ->setBacklog(64)
-            ->setBacklog(null);
+            ->setBacklog(null)
+            ->setTcpNoDelay(true)
+            ->setTcpNoDelay(false);
 
         self::assertSame(
             [],

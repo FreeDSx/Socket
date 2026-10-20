@@ -117,6 +117,31 @@ final class SocketServerTest extends TestCase
         self::assertFalse($this->subject->isConnected());
     }
 
+    public function test_it_should_still_serve_a_unix_client_when_tcp_no_delay_is_set(): void
+    {
+        $this->requireUnixTransport();
+
+        $this->subject = SocketServer::bindUnix(
+            $this->testSocket,
+            (new SocketServerOptions())->setTcpNoDelay(true),
+        );
+        $client = Socket::unix($this->testSocket);
+
+        try {
+            $accepted = $this->subject->accept(1.0);
+            self::assertNotNull($accepted);
+
+            $client->write('foo');
+
+            self::assertSame(
+                'foo',
+                $accepted->read(),
+            );
+        } finally {
+            $client->close();
+        }
+    }
+
     public function test_it_should_receive_data(): void
     {
         $this->subject = SocketServer::bindUdp('0.0.0.0', 33389);
