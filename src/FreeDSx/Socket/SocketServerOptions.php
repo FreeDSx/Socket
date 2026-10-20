@@ -30,6 +30,8 @@ final class SocketServerOptions implements SocketOptionsInterface
 
     private ?int $backlog = null;
 
+    private bool $tcpNoDelay = false;
+
     public function __construct()
     {
         $this->setSslValidateCert(false);
@@ -113,6 +115,21 @@ final class SocketServerOptions implements SocketOptionsInterface
     }
 
     /**
+     * Disable Nagle's algorithm on accepted TCP connections.
+     */
+    public function setTcpNoDelay(bool $tcpNoDelay): self
+    {
+        $this->tcpNoDelay = $tcpNoDelay;
+
+        return $this;
+    }
+
+    public function isTcpNoDelay(): bool
+    {
+        return $this->tcpNoDelay;
+    }
+
+    /**
      * The socket-level stream context options, omitting anything left at its default so the kernel decides.
      *
      * @return array<string, bool|int>
@@ -129,6 +146,9 @@ final class SocketServerOptions implements SocketOptionsInterface
         }
         if ($this->backlog !== null) {
             $opts['backlog'] = $this->backlog;
+        }
+        if ($this->tcpNoDelay) {
+            $opts['tcp_nodelay'] = true;
         }
 
         return $opts;
