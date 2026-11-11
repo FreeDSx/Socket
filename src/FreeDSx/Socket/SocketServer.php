@@ -13,11 +13,18 @@ declare(strict_types=1);
 
 namespace FreeDSx\Socket;
 
+use FreeDSx\Socket\Exception\AcceptException;
 use FreeDSx\Socket\Exception\ConnectionException;
 use function array_filter;
 use function array_values;
+use function class_exists;
+use function error_clear_last;
+use function error_get_last;
+use function is_finite;
 use function is_resource;
 use function is_string;
+use function min;
+use function sprintf;
 use function stream_socket_accept;
 use function stream_socket_recvfrom;
 use function stream_socket_server;
@@ -27,6 +34,16 @@ use function stream_socket_server;
  */
 class SocketServer extends Socket
 {
+    /**
+     * The longest wait select accepts on every platform, in seconds.
+     */
+    private const MAX_WAIT_SECONDS = 86_400.0;
+
+    /**
+     * Bounds the accept call itself in seconds, since a coroutine-hooked accept without a timeout waits for a client.
+     */
+    private const ACCEPT_WAIT_SECONDS = 0.01;
+
     /**
      * @var list<Socket>
      */
@@ -109,18 +126,27 @@ class SocketServer extends Socket
             ));
         }
         $this->socket = $socket;
+        self::loadAcceptClasses();
 
         return $this;
     }
 
+    /**
+     * Waits up to the timeout in seconds for a client, without limit when negative, or returns null when none arrives.
+     *
+     * @throws AcceptException when a waiting client cannot be accepted, which a caller should back off from.
+     */
     public function accept(float $timeout = -1.0): ?Socket
     {
-        if ($this->socket === null) {
+        if ($this->socket === null || $this->options->getTransport() === Transport::Udp) {
             return null;
         }
 
-        $accepted = @stream_socket_accept($this->socket, $timeout);
-        if (!is_resource($accepted)) {
+        $accepted = $this->acceptWithin(
+            $this->socket,
+            self::waitOf($timeout),
+        );
+        if ($accepted === null) {
             return null;
         }
 
@@ -131,6 +157,95 @@ class SocketServer extends Socket
         $this->clients[] = $client;
 
         return $client;
+    }
+
+    /**
+     * Waiting before accepting is what tells a failure from a timeout.
+     *
+     * @param resource $socket
+     * @return resource|null
+     * @throws AcceptException
+     */
+    private function acceptWithin(
+        $socket,
+        ?float $wait,
+    ) {
+        $ready = self::selectReadable(
+            $socket,
+            $wait,
+        );
+
+        // A wait that fails, such as one a signal interrupts, falls back to waiting in the accept call.
+        if ($ready === false) {
+            $accepted = @stream_socket_accept(
+                $socket,
+                $wait ?? -1.0,
+            );
+
+            return is_resource($accepted)
+                ? $accepted
+                : null;
+        }
+
+        return $ready > 0
+            ? $this->acceptWaitingClient($socket)
+            : null;
+    }
+
+    /**
+     * @param resource $socket
+     * @return resource|null
+     * @throws AcceptException
+     */
+    private function acceptWaitingClient($socket)
+    {
+        error_clear_last();
+        $accepted = @stream_socket_accept(
+            $socket,
+            self::ACCEPT_WAIT_SECONDS,
+        );
+        if (is_resource($accepted)) {
+            return $accepted;
+        }
+        $reason = error_get_last()['message'] ?? 'unknown error';
+
+        // Nothing left waiting means the client went elsewhere, such as to another process or a failed TLS handshake.
+        $stillWaiting = self::selectReadable(
+            $socket,
+            0.0,
+        );
+        if ($stillWaiting !== 1) {
+            return null;
+        }
+
+        throw new AcceptException(sprintf(
+            'Unable to accept a waiting client: %s',
+            $reason,
+        ));
+    }
+
+    /**
+     * A negative or infinite timeout waits without limit, and a finite one is capped at what select accepts.
+     */
+    private static function waitOf(float $timeout): ?float
+    {
+        if ($timeout < 0 || !is_finite($timeout)) {
+            return null;
+        }
+
+        return min(
+            $timeout,
+            self::MAX_WAIT_SECONDS,
+        );
+    }
+
+    /**
+     * Loads what we need up front. This guards against being out of descriptors when we need to throw.
+     */
+    private static function loadAcceptClasses(): void
+    {
+        class_exists(AcceptException::class);
+        class_exists(SocketAddress::class);
     }
 
     private static function optionsForAcceptedClient(SocketServerOptions $server): SocketOptionsInterface

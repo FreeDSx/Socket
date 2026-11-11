@@ -19,15 +19,13 @@ use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\Tls\Certificate;
 use FreeDSx\Socket\Transport;
-use OpenSSLAsymmetricKey;
-use OpenSSLCertificate;
-use OpenSSLCertificateSigningRequest;
 use PHPUnit\Framework\TestCase;
 
 final class SocketTest extends TestCase
 {
     use RequiresNonWindows;
     use RequiresUnixTransport;
+    use GeneratesCertificates;
 
     /**
      * @var resource|null
@@ -359,10 +357,18 @@ final class SocketTest extends TestCase
         self::assertNull($subject->getPeerCertificate());
     }
 
+    public function test_it_should_not_know_the_peer_address_of_a_socket_pair(): void
+    {
+        $this->requireNonWindows('A socket pair on Windows is a loopback TCP connection with an address.');
+        [$local] = $this->createSocketPair();
+
+        self::assertNull((new Socket($local))->getPeerAddress());
+    }
+
     public function test_it_should_return_the_peer_certificate_when_one_was_presented(): void
     {
         [$local] = $this->createSocketPair();
-        stream_context_set_option($local, 'ssl', 'peer_certificate', $this->makeCertificate());
+        stream_context_set_option($local, 'ssl', 'peer_certificate', $this->generateCertificate()[0]);
         $subject = new Socket($local);
 
         $certificate = $subject->getPeerCertificate();
@@ -375,27 +381,6 @@ final class SocketTest extends TestCase
             'peer.test',
             $certificate->getSubject()['CN'] ?? null,
         );
-    }
-
-    private function makeCertificate(): OpenSSLCertificate
-    {
-        $key = openssl_pkey_new(['private_key_bits' => 2048]);
-        if (!$key instanceof OpenSSLAsymmetricKey) {
-            self::fail('Failed to generate a private key.');
-        }
-
-        // openssl_csr_new() takes the key by reference, so re-narrow both after the call.
-        $csr = openssl_csr_new(['commonName' => 'peer.test'], $key);
-        if (!$csr instanceof OpenSSLCertificateSigningRequest || !$key instanceof OpenSSLAsymmetricKey) {
-            self::fail('Failed to generate a certificate signing request.');
-        }
-
-        $certificate = openssl_csr_sign($csr, null, $key, 1);
-        if (!$certificate instanceof OpenSSLCertificate) {
-            self::fail('Failed to sign the certificate.');
-        }
-
-        return $certificate;
     }
 
     public function test_a_socket_adopting_a_resource_under_ssl_options_is_encrypted(): void
