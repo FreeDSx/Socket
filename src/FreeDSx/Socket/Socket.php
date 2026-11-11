@@ -26,6 +26,7 @@ use function fread;
 use function fwrite;
 use function is_array;
 use function is_resource;
+use function is_string;
 use function microtime;
 use function sprintf;
 use function stream_context_create;
@@ -36,6 +37,7 @@ use function stream_set_blocking;
 use function stream_set_timeout;
 use function stream_socket_client;
 use function stream_socket_enable_crypto;
+use function stream_socket_get_name;
 use function stream_socket_shutdown;
 
 /**
@@ -48,6 +50,8 @@ class Socket
     private const MICROSECONDS_PER_SECOND = 1_000_000;
 
     protected bool $isEncrypted = false;
+
+    protected ?SocketAddress $peerAddress = null;
 
     /**
      * @var resource|null
@@ -77,6 +81,7 @@ class Socket
         $this->writeTimeoutEnforcer = $writeTimeoutEnforcer ?? $this->options->getWriteTimeoutEnforcer();
         if ($this->socket !== null) {
             $this->isEncrypted = $this->options->isUseSsl();
+            $this->peerAddress = $this->peerAddressOf($this->socket);
             $this->setStreamOpts();
         }
     }
@@ -175,16 +180,9 @@ class Socket
                 ));
             }
 
-            $read = [$stream];
-            $write = [];
-            $except = [];
-
-            $ready = @stream_select(
-                $read,
-                $write,
-                $except,
-                $remaining === null ? null : (int) $remaining,
-                $remaining === null ? 0 : (int) (fmod($remaining, 1.0) * self::MICROSECONDS_PER_SECOND),
+            $ready = self::selectReadable(
+                $stream,
+                $remaining,
             );
 
             if ($ready > 0) {
@@ -257,6 +255,14 @@ class Socket
     public function isEncrypted(): bool
     {
         return $this->isEncrypted;
+    }
+
+    /**
+     * The address of the other end, or null when it is not known (such as for a socket pair).
+     */
+    public function getPeerAddress(): ?SocketAddress
+    {
+        return $this->peerAddress;
     }
 
     /**
@@ -376,6 +382,7 @@ class Socket
             ));
         }
         $this->socket = $socket;
+        $this->peerAddress = $this->peerAddressOf($socket);
         $this->setStreamOpts();
         $this->isEncrypted = $this->options->isUseSsl();
 
@@ -488,5 +495,56 @@ class Socket
         }
 
         return $this->socket;
+    }
+
+    /**
+     * Waits up to the timeout in seconds, or without limit when null, for the stream to become readable.
+     *
+     * @param resource $stream
+     */
+    protected static function selectReadable(
+        $stream,
+        ?float $timeout,
+    ): int|false {
+        $read = [$stream];
+        $write = [];
+        $except = [];
+        $fraction = $timeout === null
+            ? 0.0
+            : fmod(
+                $timeout,
+                1.0,
+            );
+
+        return @stream_select(
+            $read,
+            $write,
+            $except,
+            $timeout === null
+                ? null
+                : (int) $timeout,
+            (int) ($fraction * self::MICROSECONDS_PER_SECOND),
+        );
+    }
+
+    /**
+     * Read once when the socket connects and kept after it closes.
+     *
+     * @param resource $stream
+     */
+    private function peerAddressOf($stream): ?SocketAddress
+    {
+        if ($this->options->getTransport() === Transport::Unix) {
+            return SocketAddress::unix();
+        }
+
+        $name = @stream_socket_get_name(
+            $stream,
+            true,
+        );
+
+        return is_string($name)
+            ? SocketAddress::tryFromName($name)
+            : null;
     }
 }

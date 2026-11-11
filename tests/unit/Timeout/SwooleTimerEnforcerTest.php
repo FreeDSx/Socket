@@ -16,14 +16,14 @@ namespace Tests\Unit\FreeDSx\Socket\Timeout;
 use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Timeout\SwooleTimerEnforcer;
 use PHPUnit\Framework\TestCase;
-use Swoole\Coroutine;
-use Swoole\Runtime;
 use Tests\Unit\FreeDSx\Socket\RequiresNonWindows;
+use Tests\Unit\FreeDSx\Socket\RunsInCoroutine;
 use Throwable;
 
 final class SwooleTimerEnforcerTest extends TestCase
 {
     use RequiresNonWindows;
+    use RunsInCoroutine;
 
     private SwooleTimerEnforcer $subject;
 
@@ -134,17 +134,6 @@ final class SwooleTimerEnforcerTest extends TestCase
             WriteTimeoutException::class,
             $caught,
         );
-    }
-
-    private function runInCoroutine(callable $callback): void
-    {
-        Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
-
-        try {
-            Coroutine\run($callback);
-        } finally {
-            Runtime::enableCoroutine(0);
-        }
     }
 
     /**
