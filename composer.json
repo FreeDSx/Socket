@@ -35,7 +35,8 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Tests\\Unit\\FreeDSx\\Socket\\": "tests/unit"
+      "Tests\\Unit\\FreeDSx\\Socket\\": "tests/unit",
+      "Tests\\Integration\\FreeDSx\\Socket\\": "tests/integration"
     }
   },
   "config": {
@@ -46,6 +47,9 @@
   "scripts": {
     "test-unit": [
       "@php -d xdebug.mode=off vendor/bin/phpunit --testsuite unit"
+    ],
+    "test-integration": [
+      "@php -d xdebug.mode=off vendor/bin/phpunit --testsuite integration"
     ],
     "test-coverage": [
       "@php -d xdebug.mode=coverage vendor/bin/phpunit --testsuite unit --coverage-clover=coverage.xml"

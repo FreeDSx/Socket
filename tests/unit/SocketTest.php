@@ -14,18 +14,22 @@ declare(strict_types=1);
 namespace Tests\Unit\FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\IdleTimeoutException;
+use FreeDSx\Socket\Exception\ReadTimeoutException;
 use FreeDSx\Socket\Exception\WriteTimeoutException;
 use FreeDSx\Socket\Socket;
 use FreeDSx\Socket\SocketOptions;
 use FreeDSx\Socket\Tls\Certificate;
 use FreeDSx\Socket\Transport;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 final class SocketTest extends TestCase
 {
     use RequiresNonWindows;
     use RequiresUnixTransport;
     use GeneratesCertificates;
+    use RunsInCoroutine;
 
     /**
      * @var resource|null
@@ -344,6 +348,239 @@ final class SocketTest extends TestCase
         self::assertTrue(stream_get_meta_data($local)['blocked']);
     }
 
+    public function test_a_blocking_read_throws_a_read_timeout_when_its_own_timeout_passes_first(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        $this->expectException(ReadTimeoutException::class);
+
+        $subject->read(
+            true,
+            0.2,
+        );
+    }
+
+    public function test_a_blocking_read_throws_an_idle_timeout_when_the_read_timeout_passes_first(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(1),
+        );
+
+        $this->expectException(IdleTimeoutException::class);
+
+        $subject->read(
+            true,
+            5.0,
+        );
+    }
+
+    public function test_a_blocking_read_returns_data_that_arrives_within_its_own_timeout(): void
+    {
+        [$local, $remote] = $this->createSocketPair();
+        fwrite(
+            $remote,
+            'data',
+        );
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        self::assertSame(
+            'data',
+            $subject->read(
+                true,
+                1.0,
+            ),
+        );
+    }
+
+    /**
+     * @return array<string, array{float}>
+     */
+    public static function noTimeLeftProvider(): array
+    {
+        return [
+            'zero' => [0.0],
+            'negative' => [-1.0],
+        ];
+    }
+
+    #[DataProvider('noTimeLeftProvider')]
+    public function test_a_blocking_read_with_no_time_left_returns_data_already_received(float $timeout): void
+    {
+        $this->requireNonWindows('A loopback socket pair on Windows may not have the bytes ready at once.');
+        [$local, $remote] = $this->createSocketPair();
+        fwrite(
+            $remote,
+            'data',
+        );
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        self::assertSame(
+            'data',
+            $subject->read(
+                true,
+                $timeout,
+            ),
+        );
+    }
+
+    #[DataProvider('noTimeLeftProvider')]
+    public function test_a_blocking_read_with_no_time_left_throws_a_read_timeout_when_nothing_was_received(
+        float $timeout,
+    ): void {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        $this->expectException(ReadTimeoutException::class);
+
+        $subject->read(
+            true,
+            $timeout,
+        );
+    }
+
+    public function test_a_blocking_read_with_its_own_timeout_returns_false_when_the_peer_has_closed(): void
+    {
+        [$local, $remote] = $this->createSocketPair();
+        fclose($remote);
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(5),
+        );
+
+        self::assertFalse($subject->read(
+            true,
+            1.0,
+        ));
+    }
+
+    public function test_a_blocking_read_with_its_own_timeout_puts_back_the_read_timeout_of_the_stream(): void
+    {
+        [$local, $remote] = $this->createSocketPair();
+        fwrite(
+            $remote,
+            'data',
+        );
+        $subject = new Socket(
+            $local,
+            (new SocketOptions())->setTimeoutRead(1),
+        );
+        $subject->read(
+            true,
+            0.5,
+        );
+
+        $start = microtime(true);
+        fread(
+            $local,
+            1,
+        );
+
+        self::assertGreaterThanOrEqual(
+            0.9,
+            microtime(true) - $start,
+        );
+    }
+
+    public function test_a_non_blocking_read_ignores_a_timeout_given_for_it(): void
+    {
+        [$local] = $this->createSocketPair();
+        $subject = new Socket($local);
+
+        self::assertFalse($subject->read(
+            false,
+            0.0,
+        ));
+    }
+
+    public function test_a_blocking_read_in_a_coroutine_throws_a_read_timeout_when_its_own_timeout_passes_first(): void
+    {
+        $this->requireSwoole();
+        $caught = null;
+
+        $this->runInCoroutine(function () use (&$caught): void {
+            [$local, $remote] = $this->createSocketPair();
+            $subject = new Socket(
+                $local,
+                (new SocketOptions())->setTimeoutRead(5),
+            );
+
+            try {
+                $subject->read(
+                    true,
+                    0.2,
+                );
+            } catch (Throwable $e) {
+                $caught = $e;
+            } finally {
+                fclose($local);
+                fclose($remote);
+            }
+        });
+
+        self::assertInstanceOf(
+            ReadTimeoutException::class,
+            $caught,
+        );
+    }
+
+    public function test_a_blocking_read_in_a_coroutine_with_its_own_timeout_puts_back_the_read_timeout_of_the_stream(
+    ): void {
+        $this->requireSwoole();
+        $caught = null;
+        $elapsed = 0.0;
+
+        $this->runInCoroutine(function () use (&$caught, &$elapsed): void {
+            [$local, $remote] = $this->createSocketPair();
+            fwrite(
+                $remote,
+                'data',
+            );
+            $subject = new Socket(
+                $local,
+                (new SocketOptions())->setTimeoutRead(1),
+            );
+
+            try {
+                $subject->read(
+                    true,
+                    0.5,
+                );
+                $start = microtime(true);
+                fread(
+                    $local,
+                    1,
+                );
+                $elapsed = microtime(true) - $start;
+            } catch (Throwable $e) {
+                $caught = $e;
+            } finally {
+                fclose($local);
+                fclose($remote);
+            }
+        });
+
+        self::assertNull($caught);
+        self::assertGreaterThanOrEqual(
+            0.9,
+            $elapsed,
+        );
+    }
+
     public function test_it_should_return_null_for_the_peer_certificate_when_not_connected(): void
     {
         self::assertNull((new Socket())->getPeerCertificate());
@@ -450,5 +687,12 @@ final class SocketTest extends TestCase
         $this->unixServer = $server;
 
         return $this->unixPath;
+    }
+
+    private function requireSwoole(): void
+    {
+        if (!extension_loaded('swoole')) {
+            self::markTestSkipped('The swoole extension is required.');
+        }
     }
 }
