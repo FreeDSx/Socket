@@ -15,6 +15,8 @@ namespace FreeDSx\Socket;
 
 use FreeDSx\Socket\Exception\ConnectionException;
 use FreeDSx\Socket\Exception\IdleTimeoutException;
+use FreeDSx\Socket\Exception\ReadTimeoutException;
+use FreeDSx\Socket\Timeout\ReadDeadline;
 use FreeDSx\Socket\Timeout\WriteTimeoutEnforcerInterface;
 use FreeDSx\Socket\Tls\Certificate;
 use OpenSSLCertificate;
@@ -27,7 +29,7 @@ use function fwrite;
 use function is_array;
 use function is_resource;
 use function is_string;
-use function microtime;
+use function max;
 use function sprintf;
 use function stream_context_create;
 use function stream_context_get_options;
@@ -48,6 +50,8 @@ use function stream_socket_shutdown;
 class Socket
 {
     private const MICROSECONDS_PER_SECOND = 1_000_000;
+
+    private const MINIMUM_STREAM_TIMEOUT = 0.001;
 
     protected bool $isEncrypted = false;
 
@@ -87,24 +91,87 @@ class Socket
     }
 
     /**
+     * @param float|null $timeout The most seconds a blocking read may take when shorter than the read timeout.
      * @throws IdleTimeoutException when a blocking read makes no progress within the configured read timeout.
+     * @throws ReadTimeoutException when a blocking read does not complete within the timeout given for it.
      */
-    public function read(bool $block = true): string|false
-    {
+    public function read(
+        bool $block = true,
+        ?float $timeout = null,
+    ): string|false {
         $stream = $this->getStream();
+        if (!$block) {
+            $data = $this->readWithoutBlocking($stream);
+
+            return $data === ''
+                ? false
+                : $data;
+        }
 
         // Bytes decrypted into the TLS buffer are off the wire already.
-        $buffered = $block && $this->isEncrypted
+        $buffered = $this->isEncrypted
             ? $this->readWithoutBlocking($stream)
             : '';
-        if ($buffered !== '') {
-            return $buffered;
-        }
-        if ($block) {
-            $this->awaitReadable($stream);
-        }
-        stream_set_blocking($stream, $block);
 
+        return $buffered !== ''
+            ? $buffered
+            : $this->readBlocking(
+                $stream,
+                ReadDeadline::start(
+                    $this->options->getTimeoutRead(),
+                    $timeout,
+                ),
+            );
+    }
+
+    /**
+     * A timeout given for the read also bounds the stream, which a partial TLS record would otherwise hold.
+     *
+     * @param resource $stream
+     * @throws IdleTimeoutException|ReadTimeoutException
+     */
+    private function readBlocking(
+        $stream,
+        ReadDeadline $deadline,
+    ): string|false {
+        $this->awaitReadable(
+            $stream,
+            $deadline,
+        );
+        $streamTimeout = $deadline->streamTimeout();
+        if ($streamTimeout === null) {
+            return $this->fetch(
+                $stream,
+                $deadline,
+            );
+        }
+
+        $this->setReadTimeout(
+            $stream,
+            $streamTimeout,
+        );
+        try {
+            return $this->fetch(
+                $stream,
+                $deadline,
+            );
+        } finally {
+            $this->setStreamOpts();
+        }
+    }
+
+    /**
+     * @param resource $stream
+     * @throws IdleTimeoutException|ReadTimeoutException
+     */
+    private function fetch(
+        $stream,
+        ReadDeadline $deadline,
+    ): string|false {
+        stream_set_blocking(
+            $stream,
+            true,
+        );
         $data = fread(
             $stream,
             $this->options->getBufferSize(),
@@ -112,18 +179,8 @@ class Socket
 
         // A blocking read yields no bytes on either a peer disconnect (feof, empty string) or a read timeout
         // (false). Only the timeout case sets the timed_out meta flag, which distinguishes the two.
-        if ($block && ($data === '' || $data === false) && $this->hasReadTimedOut($stream)) {
-            throw new IdleTimeoutException(sprintf(
-                'The connection was idle for longer than the read timeout of %d seconds.',
-                $this->options->getTimeoutRead(),
-            ));
-        }
-
-        if (!$block) {
-            stream_set_blocking(
-                $stream,
-                true,
-            );
+        if (($data === '' || $data === false) && $this->hasReadTimedOut($stream, $deadline)) {
+            throw $deadline->exceeded();
         }
 
         return $data === ''
@@ -154,35 +211,21 @@ class Socket
     }
 
     /**
-     * Wait for the socket to become readable. This enforces the read timeout that the blocking read would.
+     * Wait for the socket to become readable. This enforces the deadline that the blocking read would.
      *
      * Waiting here returns on EINTR and lets the caller run its signal handlers.
      *
      * @param resource $stream
-     * @throws IdleTimeoutException
+     * @throws IdleTimeoutException|ReadTimeoutException
      */
-    private function awaitReadable($stream): void
-    {
-        $timeout = $this->options->getTimeoutRead();
-        $deadline = $timeout > 0
-            ? microtime(true) + $timeout
-            : null;
-
+    private function awaitReadable(
+        $stream,
+        ReadDeadline $deadline,
+    ): void {
         while (true) {
-            $remaining = $deadline === null
-                ? null
-                : $deadline - microtime(true);
-
-            if ($remaining !== null && $remaining <= 0) {
-                throw new IdleTimeoutException(sprintf(
-                    'The connection was idle for longer than the read timeout of %d seconds.',
-                    $timeout,
-                ));
-            }
-
             $ready = self::selectReadable(
                 $stream,
-                $remaining,
+                $deadline->remaining(),
             );
 
             if ($ready > 0) {
@@ -191,16 +234,45 @@ class Socket
             if (!is_resource($stream)) {
                 return;
             }
+            if ($deadline->hasPassed()) {
+                throw $deadline->exceeded();
+            }
         }
     }
 
     /**
      * @param resource $stream
      */
-    private function hasReadTimedOut($stream): bool
-    {
-        return $this->options->getTimeoutRead() > 0
+    private function hasReadTimedOut(
+        $stream,
+        ReadDeadline $deadline,
+    ): bool {
+        return $deadline->isBounded()
             && stream_get_meta_data($stream)['timed_out'] === true;
+    }
+
+    /**
+     * Never below a millisecond, since a stream timeout of zero waits without limit on TLS.
+     *
+     * @param resource $stream
+     */
+    private function setReadTimeout(
+        $stream,
+        float $seconds,
+    ): void {
+        $seconds = max(
+            self::MINIMUM_STREAM_TIMEOUT,
+            $seconds,
+        );
+
+        stream_set_timeout(
+            $stream,
+            (int) $seconds,
+            (int) (fmod(
+                $seconds,
+                1.0,
+            ) * self::MICROSECONDS_PER_SECOND),
+        );
     }
 
     public function write(string $data): static

@@ -35,3 +35,6 @@ jobs:
 
       - name: Run Tests
         run: composer run-script test-unit
+
+      - name: Run Integration Tests
+        run: composer run-script test-integration
